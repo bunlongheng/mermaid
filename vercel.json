@@ -1,0 +1,4 @@
+{
+  "buildCommand": "npx turbo build",
+  "installCommand": "bun install"
+}
