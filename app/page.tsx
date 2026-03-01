@@ -195,7 +195,7 @@ const DEFAULT_CODE = `sequenceDiagram
     GIT-->>CC: Committed successfully
     CC-->>User: Done — 3 files changed`;
 
-// ── Slider row helper ─────────────────────────────────────────────────────────
+// ── Slider row ────────────────────────────────────────────────────────────────
 function SliderRow({ label, value, min, max, unit = "", onChange }: {
     label: string; value: number; min: number; max: number; unit?: string; onChange: (v: number) => void;
 }) {
@@ -212,7 +212,7 @@ function SliderRow({ label, value, min, max, unit = "", onChange }: {
     );
 }
 
-// ── Header icon button ────────────────────────────────────────────────────────
+// ── Icon button ───────────────────────────────────────────────────────────────
 function IconBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
     return (
         <button
@@ -223,9 +223,90 @@ function IconBtn({ active, onClick, children }: { active: boolean; onClick: () =
     );
 }
 
+// ── Settings content (shared between desktop panel + mobile sheet) ─────────────
+function SettingsContent({
+    opts, layout, copied,
+    upd, updL, exportPng, exportCode, exportJson, copyCode,
+}: {
+    opts: Opts; layout: Layout; copied: boolean;
+    upd: (p: Partial<Opts>) => void;
+    updL: (p: Partial<Layout>) => void;
+    exportPng: () => void; exportCode: () => void; exportJson: () => void; copyCode: () => void;
+}) {
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>Style</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+                    {([ ["coloredLines","Lines"], ["coloredNumbers","Numbers"], ["coloredText","Text Pill"] ] as const).map(([k, label]) => (
+                        <div key={k} className="flex items-center justify-between cursor-pointer select-none"
+                            onClick={() => upd({ [k]: !opts[k] } as Partial<Opts>)}>
+                            <span style={{ fontSize: 13, color: "#bbb", fontWeight: 400 }}>{label}</span>
+                            <div style={{
+                                position: "relative", width: 42, height: 24, borderRadius: 12, flexShrink: 0,
+                                background: opts[k] ? "#34c759" : "#333",
+                                transition: "background 0.2s", cursor: "pointer",
+                            }}>
+                                <div style={{
+                                    position: "absolute", top: 2, width: 20, height: 20, borderRadius: 10,
+                                    background: "white", left: opts[k] ? 20 : 2,
+                                    transition: "left 0.2s ease",
+                                    boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+                                }} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div style={{ height: 1, background: "#222" }} />
+
+            <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Layout</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <SliderRow label="Height" value={layout.stepHeight} min={30} max={80} onChange={v => updL({ stepHeight: v })} />
+                    <SliderRow label="Width" value={layout.boxWidth} min={80} max={180} onChange={v => updL({ boxWidth: v })} />
+                    <SliderRow label="Gap" value={layout.spacing} min={120} max={350} onChange={v => updL({ spacing: v })} />
+                    <SliderRow label="Font" value={layout.textSize} min={10} max={20} unit="px" onChange={v => updL({ textSize: v })} />
+                    <SliderRow label="Margin" value={layout.margin} min={35} max={120} onChange={v => updL({ margin: v })} />
+                </div>
+            </div>
+
+            <div style={{ height: 1, background: "#222" }} />
+
+            <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 9 }}>Export</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+                    <button onClick={exportPng}
+                        className="py-2.5 rounded-xl text-[12px] font-semibold transition-all hover:brightness-110 active:scale-95"
+                        style={{ background: "#f97316", color: "white", cursor: "pointer" }}>
+                        PNG
+                    </button>
+                    <button onClick={exportCode}
+                        className="py-2.5 rounded-xl text-[12px] font-semibold transition-all hover:brightness-110 active:scale-95"
+                        style={{ background: "#3b82f6", color: "white", cursor: "pointer" }}>
+                        Code
+                    </button>
+                    <button onClick={exportJson}
+                        className="py-2.5 rounded-xl text-[12px] font-semibold transition-all hover:brightness-110 active:scale-95"
+                        style={{ background: "#22c55e", color: "white", cursor: "pointer" }}>
+                        JSON
+                    </button>
+                    <button onClick={copyCode}
+                        className="py-2.5 rounded-xl text-[12px] font-semibold transition-all hover:brightness-110 active:scale-95"
+                        style={{ background: copied ? "#34c759" : "#8b5cf6", color: "white", cursor: "pointer" }}>
+                        {copied ? "Copied" : "Copy"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function SequenceTool() {
     const [mounted, setMounted] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
     const [code, setCode] = useState(DEFAULT_CODE);
     const [showCode, setShowCode] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
@@ -245,8 +326,12 @@ export default function SequenceTool() {
     const isDragging = useRef(false);
     const dragOrigin = useRef({ x: 0, y: 0, sl: 0, st: 0 });
     const [draggingCanvas, setDraggingCanvas] = useState(false);
+    const zoomRef = useRef(1.0);
 
-    // ── Resize drag ────────────────────────────────────────────────────────────
+    // Keep zoomRef in sync
+    useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
+    // ── Resize drag (desktop) ───────────────────────────────────────────────
     useEffect(() => {
         const onMove = (e: MouseEvent) => {
             if (!isResizing.current) return;
@@ -259,7 +344,7 @@ export default function SequenceTool() {
         return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
     }, []);
 
-    // ── Smooth pinch-to-zoom (trackpad ctrl+wheel) ────────────────────────────
+    // ── Smooth pinch-to-zoom (trackpad ctrl+wheel) ────────────────────────
     useEffect(() => {
         if (!mounted) return;
         const el = canvasRef.current;
@@ -275,7 +360,69 @@ export default function SequenceTool() {
         return () => el.removeEventListener("wheel", onWheel);
     }, [mounted]);
 
-    // ── Pan drag (hand tool) ───────────────────────────────────────────────────
+    // ── Touch: pinch-zoom + pan ───────────────────────────────────────────
+    useEffect(() => {
+        if (!mounted) return;
+        const el = canvasRef.current;
+        if (!el) return;
+
+        let startScrollLeft = 0, startScrollTop = 0;
+        let startTouchX = 0, startTouchY = 0;
+        let startPinchDist: number | null = null;
+        let startZoomVal = 1;
+        let isTouchPanning = false;
+
+        const getDist = (t: TouchList) => {
+            const dx = t[0].clientX - t[1].clientX;
+            const dy = t[0].clientY - t[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        };
+
+        const onTouchStart = (e: TouchEvent) => {
+            if (e.touches.length === 2) {
+                startPinchDist = getDist(e.touches);
+                startZoomVal = zoomRef.current;
+                isTouchPanning = false;
+            } else if (e.touches.length === 1) {
+                isTouchPanning = true;
+                startPinchDist = null;
+                startTouchX = e.touches[0].clientX;
+                startTouchY = e.touches[0].clientY;
+                startScrollLeft = el.scrollLeft;
+                startScrollTop = el.scrollTop;
+            }
+        };
+
+        const onTouchMove = (e: TouchEvent) => {
+            if (e.touches.length === 2 && startPinchDist !== null) {
+                e.preventDefault();
+                const d = getDist(e.touches);
+                const ratio = d / startPinchDist;
+                setZoom(parseFloat(Math.min(3, Math.max(0.2, startZoomVal * ratio)).toFixed(3)));
+                setFitActive(false);
+            } else if (e.touches.length === 1 && isTouchPanning) {
+                e.preventDefault();
+                el.scrollLeft = startScrollLeft - (e.touches[0].clientX - startTouchX);
+                el.scrollTop = startScrollTop - (e.touches[0].clientY - startTouchY);
+            }
+        };
+
+        const onTouchEnd = () => {
+            startPinchDist = null;
+            isTouchPanning = false;
+        };
+
+        el.addEventListener("touchstart", onTouchStart, { passive: false });
+        el.addEventListener("touchmove", onTouchMove, { passive: false });
+        el.addEventListener("touchend", onTouchEnd);
+        return () => {
+            el.removeEventListener("touchstart", onTouchStart);
+            el.removeEventListener("touchmove", onTouchMove);
+            el.removeEventListener("touchend", onTouchEnd);
+        };
+    }, [mounted]);
+
+    // ── Pan drag (mouse) ──────────────────────────────────────────────────
     useEffect(() => {
         const onMove = (e: MouseEvent) => {
             if (!isDragging.current || !canvasRef.current) return;
@@ -290,16 +437,24 @@ export default function SequenceTool() {
         return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
     }, []);
 
-    // ── Mount + load localStorage ──────────────────────────────────────────────
+    // ── Mount + localStorage ──────────────────────────────────────────────
     useEffect(() => {
         setMounted(true);
+        setIsMobile(window.innerWidth < 768);
         const c = localStorage.getItem("nsd-code");
         if (c) setCode(c);
         try { const o = localStorage.getItem("nsd-opts"); if (o) setOpts(prev => ({ ...prev, ...JSON.parse(o) })); } catch {}
         try { const l = localStorage.getItem("nsd-layout"); if (l) setLayout(prev => ({ ...prev, ...JSON.parse(l) })); } catch {}
     }, []);
 
-    // ── Persist to localStorage ────────────────────────────────────────────────
+    // ── Mobile detection on resize ────────────────────────────────────────
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener("resize", check);
+        return () => window.removeEventListener("resize", check);
+    }, []);
+
+    // ── Persist ───────────────────────────────────────────────────────────
     useEffect(() => { if (mounted) localStorage.setItem("nsd-code", code); }, [code, mounted]);
     useEffect(() => { if (mounted) localStorage.setItem("nsd-opts", JSON.stringify(opts)); }, [opts, mounted]);
     useEffect(() => { if (mounted) localStorage.setItem("nsd-layout", JSON.stringify(layout)); }, [layout, mounted]);
@@ -344,7 +499,7 @@ export default function SequenceTool() {
     const upd = (p: Partial<Opts>) => setOpts(o => ({ ...o, ...p }));
     const updL = (p: Partial<Layout>) => setLayout(l => ({ ...l, ...p }));
 
-    // ── Exports ────────────────────────────────────────────────────────────────
+    // ── Exports ───────────────────────────────────────────────────────────
     const EXPORT_LAYOUT: Layout = { stepHeight: 58, boxWidth: 160, spacing: 210, textSize: 14, margin: 60 };
 
     const exportPng = useCallback(() => {
@@ -414,17 +569,17 @@ export default function SequenceTool() {
         <div className="h-screen w-screen flex flex-col overflow-hidden" style={{ fontFamily: "Inter, sans-serif" }}>
 
             {/* ── HEADER ── */}
-            <header className="flex items-center px-5 shrink-0"
+            <header className="flex items-center px-4 shrink-0"
                 style={{ height: 54, background: "#111113", borderBottom: "1px solid #27272a" }}>
                 <span className="font-bold text-[16px] tracking-tight" style={{ color: "#f4f4f5", letterSpacing: "-0.3px" }}>
                     Mermaid++
                 </span>
                 <div className="flex-1" />
                 <div className="flex gap-2">
-                    <IconBtn active={showCode} onClick={() => setShowCode(v => !v)}>
+                    <IconBtn active={showCode} onClick={() => { setShowCode(v => !v); if (showSettings) setShowSettings(false); }}>
                         <Code2 size={18} strokeWidth={2} />
                     </IconBtn>
-                    <IconBtn active={showSettings} onClick={() => setShowSettings(v => !v)}>
+                    <IconBtn active={showSettings} onClick={() => { setShowSettings(v => !v); if (showCode && isMobile) setShowCode(false); }}>
                         <SlidersHorizontal size={18} strokeWidth={2} />
                     </IconBtn>
                 </div>
@@ -433,8 +588,8 @@ export default function SequenceTool() {
             {/* ── BODY ── */}
             <div className="flex-1 flex overflow-hidden">
 
-                {/* ── Code editor ── */}
-                {showCode && (
+                {/* Desktop: Code editor side panel */}
+                {!isMobile && showCode && (
                     <div className="flex shrink-0 relative" style={{ width: codeWidth }}>
                         <div className="flex flex-col flex-1 overflow-hidden border-r"
                             style={{
@@ -449,18 +604,14 @@ export default function SequenceTool() {
                                 <span className="text-[9px] font-bold uppercase tracking-widest"
                                     style={{ color: editorDark ? "#4a5568" : "#94a3b8" }}>Code</span>
                                 <div className="flex items-center gap-1">
-                                    <button
-                                        onClick={copyCode}
-                                        title="Copy code"
+                                    <button onClick={copyCode} title="Copy code"
                                         className="h-6 px-2 rounded flex items-center justify-center text-[10px] font-semibold transition-all"
                                         style={{ color: copied ? "#22c55e" : (editorDark ? "#64748b" : "#94a3b8"), background: copied ? (editorDark ? "rgba(34,197,94,0.12)" : "rgba(34,197,94,0.08)") : "transparent" }}
                                     >{copied ? "Copied" : "Copy"}</button>
-                                    <button
-                                        onClick={() => setEditorDark(v => !v)}
-                                        title={editorDark ? "Light mode" : "Dark mode"}
+                                    <button onClick={() => setEditorDark(v => !v)} title={editorDark ? "Light mode" : "Dark mode"}
                                         className="w-6 h-6 rounded flex items-center justify-center text-sm"
                                         style={{ color: editorDark ? "#7dd3fc" : "#64748b" }}
-                                    >{editorDark ? "Sun" : "Moon"}</button>
+                                    >{editorDark ? "☀" : "☾"}</button>
                                 </div>
                             </div>
                             <textarea
@@ -502,7 +653,7 @@ export default function SequenceTool() {
                 {/* ── Diagram canvas ── */}
                 <div className="flex-1 relative" style={{ background: "#c8d0da" }}>
                     <div ref={canvasRef} className="absolute inset-0 overflow-auto"
-                        style={{ cursor: draggingCanvas ? "grabbing" : "grab" }}
+                        style={{ cursor: draggingCanvas ? "grabbing" : "grab", touchAction: "none" }}
                         onMouseDown={e => {
                             if ((e.target as HTMLElement).closest("button")) return;
                             isDragging.current = true;
@@ -517,20 +668,16 @@ export default function SequenceTool() {
                     >
                         {mounted && displaySvg ? (
                             <div style={{
-                                minWidth: "100%",
-                                minHeight: "100%",
-                                display: "flex",
-                                justifyContent: "center",
-                                alignItems: "flex-start",
-                                padding: 24,
-                                boxSizing: "border-box",
+                                minWidth: "100%", minHeight: "100%",
+                                display: "flex", justifyContent: "center", alignItems: "flex-start",
+                                padding: 24, boxSizing: "border-box",
                             }}>
                                 <div style={{ flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: displaySvg }} />
                             </div>
                         ) : (
                             <div className="flex items-center justify-center h-full">
                                 {mounted && (
-                                    <span className="text-sm" style={{ color: "#94a3b8" }}>
+                                    <span className="text-sm text-center px-6" style={{ color: "#94a3b8" }}>
                                         No diagram — open the code editor and enter sequence syntax.
                                     </span>
                                 )}
@@ -538,39 +685,41 @@ export default function SequenceTool() {
                         )}
                     </div>
 
-                    {/* Floating zoom toolbar */}
+                    {/* Zoom toolbar */}
                     {mounted && (
                         <div
-                            className="absolute bottom-3 z-10 flex items-center gap-0.5"
+                            className="absolute bottom-4 z-10 flex items-center"
                             style={{
                                 left: "50%", transform: "translateX(-50%)",
                                 background: "white",
                                 border: "1px solid #e2e8f0",
-                                borderRadius: 10,
-                                padding: "3px 10px",
-                                boxShadow: "0 2px 12px rgba(0,0,0,0.1)",
-                                gap: 2,
+                                borderRadius: 12,
+                                padding: isMobile ? "4px 8px" : "3px 10px",
+                                boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                                gap: isMobile ? 0 : 2,
+                                whiteSpace: "nowrap",
                             }}
                         >
                             <button
                                 onClick={() => { setZoom(z => parseFloat(Math.max(0.2, z - 0.1).toFixed(2))); setFitActive(false); }}
-                                className="flex items-center justify-center w-6 h-6 rounded hover:bg-black/5 transition-all"
-                                style={{ color: "#64748b", fontSize: 18, lineHeight: 1 }}
-                            >-</button>
+                                className="flex items-center justify-center rounded hover:bg-black/5 transition-all"
+                                style={{ width: isMobile ? 38 : 24, height: isMobile ? 38 : 24, color: "#64748b", fontSize: isMobile ? 22 : 18, lineHeight: 1 }}
+                            >−</button>
 
-                            <span style={{ color: "#1e293b", fontSize: 11, fontWeight: 600, minWidth: 38, textAlign: "center" }}>
+                            <span style={{ color: "#1e293b", fontSize: isMobile ? 13 : 11, fontWeight: 600, minWidth: isMobile ? 48 : 38, textAlign: "center" }}>
                                 {zoomPct}%
                             </span>
 
                             <button
                                 onClick={() => { setZoom(z => parseFloat(Math.min(3, z + 0.1).toFixed(2))); setFitActive(false); }}
-                                className="flex items-center justify-center w-6 h-6 rounded hover:bg-black/5 transition-all"
-                                style={{ color: "#64748b", fontSize: 18, lineHeight: 1 }}
+                                className="flex items-center justify-center rounded hover:bg-black/5 transition-all"
+                                style={{ width: isMobile ? 38 : 24, height: isMobile ? 38 : 24, color: "#64748b", fontSize: isMobile ? 22 : 18, lineHeight: 1 }}
                             >+</button>
 
-                            <div style={{ width: 1, height: 14, background: "#e2e8f0", margin: "0 6px" }} />
+                            <div style={{ width: 1, height: 14, background: "#e2e8f0", margin: isMobile ? "0 6px" : "0 6px" }} />
 
-                            {[50, 75, 100, 120, 150].map(p => (
+                            {/* Desktop: preset zoom buttons */}
+                            {!isMobile && [50, 75, 100, 120, 150].map(p => (
                                 <button
                                     key={p}
                                     onClick={() => { setZoom(p / 100); setFitActive(false); }}
@@ -582,12 +731,18 @@ export default function SequenceTool() {
                                 >{p}%</button>
                             ))}
 
-                            <div style={{ width: 1, height: 14, background: "#e2e8f0", margin: "0 6px" }} />
+                            {!isMobile && <div style={{ width: 1, height: 14, background: "#e2e8f0", margin: "0 6px" }} />}
 
                             <button
                                 onClick={fitZoom}
-                                className="rounded px-2 py-0.5 text-[10px] font-bold hover:bg-black/5 transition-all"
+                                className="rounded hover:bg-black/5 transition-all"
                                 style={{
+                                    padding: isMobile ? "0 10px" : "0 8px",
+                                    height: isMobile ? 38 : "auto",
+                                    paddingTop: isMobile ? 0 : "2px",
+                                    paddingBottom: isMobile ? 0 : "2px",
+                                    fontSize: isMobile ? 13 : 10,
+                                    fontWeight: 700,
                                     color: fitActive ? "#3b82f6" : "#64748b",
                                     background: fitActive ? "rgba(59,130,246,0.08)" : "transparent",
                                     letterSpacing: "0.04em",
@@ -595,13 +750,11 @@ export default function SequenceTool() {
                             >Fit</button>
                         </div>
                     )}
-
                 </div>
 
-                {/* ── Settings panel ── */}
-                {showSettings && (
+                {/* Desktop: Settings panel */}
+                {!isMobile && showSettings && (
                     <div className="shrink-0 flex flex-col" style={{ width: 268, background: "#161618", borderLeft: "1px solid #2a2a2a" }}>
-
                         <div className="flex items-center justify-between shrink-0"
                             style={{ padding: "0 16px", height: 54, borderBottom: "1px solid #2a2a2a" }}>
                             <span style={{ fontSize: 14, fontWeight: 600, color: "#fff", letterSpacing: "-0.2px" }}>Settings</span>
@@ -611,78 +764,100 @@ export default function SequenceTool() {
                                 <X size={14} strokeWidth={2.5} />
                             </button>
                         </div>
-
-                        <div className="flex-1 overflow-y-auto" style={{ padding: "20px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
-
-                            <div>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>Style</div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-                                    {([ ["coloredLines","Lines"], ["coloredNumbers","Numbers"], ["coloredText","Text Pill"] ] as const).map(([k, label]) => (
-                                        <div key={k} className="flex items-center justify-between cursor-pointer select-none"
-                                            onClick={() => upd({ [k]: !opts[k] } as Partial<Opts>)}>
-                                            <span style={{ fontSize: 13, color: "#bbb", fontWeight: 400 }}>{label}</span>
-                                            <div style={{
-                                                position: "relative", width: 42, height: 24, borderRadius: 12, flexShrink: 0,
-                                                background: opts[k] ? "#34c759" : "#333",
-                                                transition: "background 0.2s", cursor: "pointer",
-                                            }}>
-                                                <div style={{
-                                                    position: "absolute", top: 2, width: 20, height: 20, borderRadius: 10,
-                                                    background: "white", left: opts[k] ? 20 : 2,
-                                                    transition: "left 0.2s ease",
-                                                    boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
-                                                }} />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div style={{ height: 1, background: "#222" }} />
-
-                            <div>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Layout</div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                    <SliderRow label="Height" value={layout.stepHeight} min={30} max={80} onChange={v => updL({ stepHeight: v })} />
-                                    <SliderRow label="Width" value={layout.boxWidth} min={80} max={180} onChange={v => updL({ boxWidth: v })} />
-                                    <SliderRow label="Gap" value={layout.spacing} min={120} max={350} onChange={v => updL({ spacing: v })} />
-                                    <SliderRow label="Font" value={layout.textSize} min={10} max={20} unit="px" onChange={v => updL({ textSize: v })} />
-                                    <SliderRow label="Margin" value={layout.margin} min={35} max={120} onChange={v => updL({ margin: v })} />
-                                </div>
-                            </div>
-
-                            <div style={{ height: 1, background: "#222" }} />
-
-                            <div>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 9 }}>Export</div>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-                                    <button onClick={exportPng}
-                                        className="py-2.5 rounded-xl text-[12px] font-semibold transition-all hover:brightness-110 active:scale-95"
-                                        style={{ background: "#f97316", color: "white", cursor: "pointer" }}>
-                                        PNG
-                                    </button>
-                                    <button onClick={exportCode}
-                                        className="py-2.5 rounded-xl text-[12px] font-semibold transition-all hover:brightness-110 active:scale-95"
-                                        style={{ background: "#3b82f6", color: "white", cursor: "pointer" }}>
-                                        Code
-                                    </button>
-                                    <button onClick={exportJson}
-                                        className="py-2.5 rounded-xl text-[12px] font-semibold transition-all hover:brightness-110 active:scale-95"
-                                        style={{ background: "#22c55e", color: "white", cursor: "pointer" }}>
-                                        JSON
-                                    </button>
-                                    <button onClick={copyCode}
-                                        className="py-2.5 rounded-xl text-[12px] font-semibold transition-all hover:brightness-110 active:scale-95"
-                                        style={{ background: copied ? "#34c759" : "#8b5cf6", color: "white", cursor: "pointer" }}>
-                                        {copied ? "Copied" : "Copy"}
-                                    </button>
-                                </div>
-                            </div>
-
+                        <div className="flex-1 overflow-y-auto" style={{ padding: "20px 16px" }}>
+                            <SettingsContent opts={opts} layout={layout} copied={copied}
+                                upd={upd} updL={updL} exportPng={exportPng} exportCode={exportCode} exportJson={exportJson} copyCode={copyCode} />
                         </div>
                     </div>
                 )}
             </div>
+
+            {/* ── Mobile: Code editor full-screen overlay ── */}
+            {isMobile && showCode && (
+                <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "#0d1117" }}>
+                    <div className="flex items-center justify-between px-4 shrink-0"
+                        style={{ height: 54, background: "#0a0f1e", borderBottom: "1px solid #1e2334" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#4a5568", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                            Code Editor
+                        </span>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={copyCode}
+                                style={{ fontSize: 13, fontWeight: 600, color: copied ? "#22c55e" : "#64748b", padding: "6px 0" }}
+                            >{copied ? "Copied!" : "Copy"}</button>
+                            <button
+                                onClick={() => setShowCode(false)}
+                                className="w-9 h-9 rounded-full flex items-center justify-center"
+                                style={{ background: "#1e2334", color: "#94a3b8" }}>
+                                <X size={16} strokeWidth={2.5} />
+                            </button>
+                        </div>
+                    </div>
+                    <textarea
+                        className="flex-1 resize-none outline-none"
+                        spellCheck={false}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        value={code}
+                        onChange={e => setCode(e.target.value)}
+                        onPaste={handlePaste}
+                        style={{
+                            background: "transparent",
+                            color: "#8892a4",
+                            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                            fontSize: "13px",
+                            lineHeight: 1.8,
+                            border: "none",
+                            padding: "16px",
+                        }}
+                    />
+                    {/* Done button */}
+                    <div className="shrink-0 px-4 py-3" style={{ borderTop: "1px solid #1e2334", background: "#0a0f1e" }}>
+                        <button
+                            onClick={() => setShowCode(false)}
+                            className="w-full py-3 rounded-xl font-semibold text-sm transition-all active:scale-95"
+                            style={{ background: "#0a84ff", color: "white" }}
+                        >Done</button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Mobile: Settings bottom sheet ── */}
+            {isMobile && showSettings && (
+                <div
+                    className="fixed inset-0 z-50"
+                    style={{ background: "rgba(0,0,0,0.5)" }}
+                    onClick={() => setShowSettings(false)}
+                >
+                    <div
+                        className="absolute bottom-0 left-0 right-0 flex flex-col rounded-t-2xl overflow-hidden"
+                        style={{ background: "#161618", maxHeight: "84vh" }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Pull handle */}
+                        <div className="flex justify-center pt-3 pb-1 shrink-0">
+                            <div style={{ width: 36, height: 4, background: "#333", borderRadius: 2 }} />
+                        </div>
+                        {/* Sheet header */}
+                        <div className="flex items-center justify-between shrink-0"
+                            style={{ padding: "8px 20px 12px", borderBottom: "1px solid #2a2a2a" }}>
+                            <span style={{ fontSize: 17, fontWeight: 600, color: "#fff", letterSpacing: "-0.3px" }}>Settings</span>
+                            <button
+                                onClick={() => setShowSettings(false)}
+                                className="w-8 h-8 rounded-full flex items-center justify-center"
+                                style={{ background: "#222", color: "#666" }}>
+                                <X size={15} strokeWidth={2.5} />
+                            </button>
+                        </div>
+                        {/* Sheet content */}
+                        <div className="flex-1 overflow-y-auto" style={{ padding: "20px 20px 40px" }}>
+                            <SettingsContent opts={opts} layout={layout} copied={copied}
+                                upd={upd} updL={updL} exportPng={exportPng} exportCode={exportCode} exportJson={exportJson} copyCode={copyCode} />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
