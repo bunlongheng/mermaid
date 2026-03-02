@@ -301,7 +301,7 @@ function SliderRow({ label, value, min, max, unit = "", fontSize = 12, onChange 
             </div>
             <input type="range" min={min} max={max} value={value}
                 onChange={e => onChange(parseInt(e.target.value))}
-                className="w-full" style={{ accentColor: "#0a84ff" }} />
+                className="w-full" />
         </div>
     );
 }
