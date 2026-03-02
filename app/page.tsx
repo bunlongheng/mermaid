@@ -78,8 +78,8 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
     const AH = 8, SW = 50, SH = 36, FS = l.textSize;
     const diagramTitle = d.title ?? DEFAULT_DIAGRAM_TITLE;
     const TITLE_H = 38;
-    const TP = 66;
-    const BOT_PAD = TP;
+    const TP = l.margin;
+    const BOT_PAD = l.margin;
     const cx = (i: number) => LP + BW / 2 + i * HS;
     const idx = new Map(ps.map((p, i) => [p.id, i]));
     const W = 2 * LP + (N - 1) * HS + BW;
