@@ -146,8 +146,6 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
         if (o.coloredNumbers) {
             parts.push(`<circle cx="${fx}" cy="${y}" r="10" fill="${fp.color}"/>`);
             parts.push(`<text x="${fx}" y="${y+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="11" font-weight="700" fill="#000000">${msg.displayStep ?? msg.step}</text>`);
-            parts.push(`<circle cx="22" cy="${y}" r="10" fill="${fp.color}"/>`);
-            parts.push(`<text x="22" y="${y+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="11" font-weight="700" fill="#000000">${msg.displayStep ?? msg.step}</text>`);
         } else {
             parts.push(`<text x="${fx}" y="${y+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="13" font-weight="700" fill="#000000">${msg.displayStep ?? msg.step}</text>`);
         }
