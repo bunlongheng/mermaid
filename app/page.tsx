@@ -164,7 +164,8 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
         if (fi === ti) {
             const isDashed = msg.arrow === "dashed";
             const pathStyle = isDashed ? `fill="none" stroke="${lc}"${DASHED_STYLE}` : `fill="none" stroke="${lc}" stroke-width="1.5"`;
-            parts.push(`<path d="M${fx} ${y} H${fx+SW} V${y+SH} H${fx}" ${pathStyle}/>`);
+            const selfX1 = o.coloredNumbers ? fx + 11 : fx;
+            parts.push(`<path d="M${selfX1} ${y} H${fx+SW} V${y+SH} H${fx}" ${pathStyle}/>`);
             parts.push(`<polygon points="${fx},${y+SH} ${fx+AH},${y+SH-5} ${fx+AH},${y+SH+5}" fill="${lc}"/>`);
             if (o.coloredText) {
                 const pillH = FS + 8, pillW = Math.max(40, msg.text.length * (FS * 0.62) + 12);
@@ -177,12 +178,13 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
         } else {
             const dir = tx > fx ? 1 : -1;
             const isDashed = msg.arrow === "dashed";
+            const lineX1 = o.coloredNumbers ? fx + dir * 11 : fx;
             if (isDashed) {
-                parts.push(`<line x1="${fx}" y1="${y}" x2="${tx-dir*AH}" y2="${y}" stroke="${lc}"${DASHED_STYLE}/>`);
+                parts.push(`<line x1="${lineX1}" y1="${y}" x2="${tx-dir*AH}" y2="${y}" stroke="${lc}"${DASHED_STYLE}/>`);
                 if (dir === 1) parts.push(`<polyline points="${tx-AH},${y-5} ${tx},${y} ${tx-AH},${y+5}" fill="none" stroke="${lc}" stroke-width="1.5"/>`);
                 else           parts.push(`<polyline points="${tx+AH},${y-5} ${tx},${y} ${tx+AH},${y+5}" fill="none" stroke="${lc}" stroke-width="1.5"/>`);
             } else {
-                parts.push(`<line x1="${fx}" y1="${y}" x2="${tx-dir*AH}" y2="${y}" stroke="${lc}" stroke-width="1.5"/>`);
+                parts.push(`<line x1="${lineX1}" y1="${y}" x2="${tx-dir*AH}" y2="${y}" stroke="${lc}" stroke-width="1.5"/>`);
                 if (dir === 1) parts.push(`<polygon points="${tx},${y} ${tx-AH},${y-5} ${tx-AH},${y+5}" fill="${lc}"/>`);
                 else           parts.push(`<polygon points="${tx},${y} ${tx+AH},${y-5} ${tx+AH},${y+5}" fill="${lc}"/>`);
             }
@@ -475,7 +477,7 @@ export default function SequenceTool() {
                 const dy = e.clientY - (rect.top + rect.height / 2);
                 const speed = e.deltaMode === 1 ? 0.06 : 0.004;
                 const oldZoom = zoomRef.current;
-                const newZoom = parseFloat(Math.min(3, Math.max(0.1, oldZoom - e.deltaY * speed)).toFixed(3));
+                const newZoom = parseFloat(Math.min(4, Math.max(0.1, oldZoom - e.deltaY * speed)).toFixed(3));
                 const ratio = newZoom / oldZoom;
                 const newPanX = dx * (1 - ratio) + panRef.current.x * ratio;
                 const newPanY = dy * (1 - ratio) + panRef.current.y * ratio;
@@ -539,7 +541,7 @@ export default function SequenceTool() {
                 e.preventDefault();
                 const d = getDist(e.touches);
                 const ratio = d / startPinchDist;
-                const newZoom = parseFloat(Math.min(3, Math.max(0.1, startZoomVal * ratio)).toFixed(3));
+                const newZoom = parseFloat(Math.min(4, Math.max(0.1, startZoomVal * ratio)).toFixed(3));
                 zoomRef.current = newZoom;
                 panRef.current = { x: startPinchPanX, y: startPinchPanY };
                 setZoom(newZoom);
@@ -653,7 +655,7 @@ export default function SequenceTool() {
             if (tag === "TEXTAREA" || tag === "INPUT") return;
             const mod = e.metaKey || e.ctrlKey;
             if (mod && e.key === "0") { e.preventDefault(); fitZoom(); }
-            if (mod && (e.key === "=" || e.key === "+")) { e.preventDefault(); setZoom(z => parseFloat(Math.min(3, z + 0.15).toFixed(2))); setFitActive(false); }
+            if (mod && (e.key === "=" || e.key === "+")) { e.preventDefault(); setZoom(z => parseFloat(Math.min(4, z + 0.15).toFixed(2))); setFitActive(false); }
             if (mod && e.key === "-") { e.preventDefault(); setZoom(z => parseFloat(Math.max(0.1, z - 0.15).toFixed(2))); setFitActive(false); }
             if (e.key === "f" || e.key === "F") fitZoom();
             if (e.key === " " && !e.repeat) { e.preventDefault(); spaceHeld.current = true; }
@@ -838,7 +840,7 @@ export default function SequenceTool() {
                             const dx = e.clientX - (rect.left + rect.width / 2);
                             const dy = e.clientY - (rect.top + rect.height / 2);
                             const oldZoom = zoomRef.current;
-                            const newZoom = parseFloat(Math.min(3, oldZoom * 1.5).toFixed(3));
+                            const newZoom = parseFloat(Math.min(4, oldZoom * 1.5).toFixed(3));
                             const ratio = newZoom / oldZoom;
                             const newPanX = dx * (1 - ratio) + panRef.current.x * ratio;
                             const newPanY = dy * (1 - ratio) + panRef.current.y * ratio;
@@ -895,7 +897,7 @@ export default function SequenceTool() {
                             </span>
 
                             <button
-                                onClick={() => { setZoom(z => parseFloat(Math.min(3, z + 0.1).toFixed(2))); setFitActive(false); }}
+                                onClick={() => { setZoom(z => parseFloat(Math.min(4, z + 0.1).toFixed(2))); setFitActive(false); }}
                                 className="flex items-center justify-center rounded hover:bg-black/5 transition-all"
                                 style={{ width: isMobile ? 38 : 24, height: isMobile ? 38 : 24, color: "#64748b", fontSize: isMobile ? 22 : 18, lineHeight: 1 }}
                             >+</button>
@@ -903,7 +905,7 @@ export default function SequenceTool() {
                             <div style={{ width: 1, height: 14, background: "#e2e8f0", margin: isMobile ? "0 6px" : "0 6px" }} />
 
                             {/* Desktop: preset zoom buttons */}
-                            {!isMobile && [50, 75, 100, 120, 150].map(p => (
+                            {!isMobile && [50, 75, 100, 150, 200].map(p => (
                                 <button
                                     key={p}
                                     onClick={() => { setZoom(p / 100); setFitActive(false); }}
