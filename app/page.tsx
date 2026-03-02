@@ -16,32 +16,74 @@ const DEFAULT_LAYOUT: Layout = { stepHeight: 42, boxWidth: 141, spacing: 250, te
 // ── Palette ───────────────────────────────────────────────────────────────────
 const PAL = ["#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#f43f5e","#84cc16","#0891b2"];
 
-// ── Icon auto-detection ───────────────────────────────────────────────────────
-function guessIcon(s: string): string {
+// ── Icon system (Lucide-sourced SVG paths, white stroke) ──────────────────────
+type INode = [string, Record<string, string | number>];
+const ICON_NODES: Record<string, INode[]> = {
+    user:         [["path",{d:"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"}],["circle",{cx:12,cy:7,r:4}]],
+    bot:          [["path",{d:"M12 8V4H8"}],["rect",{width:16,height:12,x:4,y:8,rx:2}],["path",{d:"M2 14h2"}],["path",{d:"M20 14h2"}],["path",{d:"M15 13v2"}],["path",{d:"M9 13v2"}]],
+    server:       [["rect",{width:20,height:8,x:2,y:2,rx:2}],["rect",{width:20,height:8,x:2,y:14,rx:2}],["path",{d:"M6 6h.01"}],["path",{d:"M6 18h.01"}]],
+    database:     [["ellipse",{cx:12,cy:5,rx:9,ry:3}],["path",{d:"M3 5V19A9 3 0 0 0 21 19V5"}],["path",{d:"M3 12A9 3 0 0 0 21 12"}]],
+    zap:          [["path",{d:"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"}]],
+    plug:         [["path",{d:"M12 22v-5"}],["path",{d:"M15 8V2"}],["path",{d:"M17 8a1 1 0 0 1 1 1v4a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1z"}],["path",{d:"M9 8V2"}]],
+    "git-branch": [["path",{d:"M15 6a9 9 0 0 0-9 9V3"}],["circle",{cx:18,cy:6,r:3}],["circle",{cx:6,cy:18,r:3}]],
+    globe:        [["circle",{cx:12,cy:12,r:10}],["path",{d:"M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"}],["path",{d:"M2 12h20"}]],
+    brain:        [["path",{d:"M12 18V5"}],["path",{d:"M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4"}],["path",{d:"M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5"}],["path",{d:"M18 18a4 4 0 0 0 2-7.464"}],["path",{d:"M6 18a4 4 0 0 1-2-7.464"}]],
+    settings:     [["path",{d:"M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"}],["circle",{cx:12,cy:12,r:3}]],
+    folder:       [["path",{d:"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"}]],
+    cloud:        [["path",{d:"M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"}]],
+    mail:         [["path",{d:"m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"}],["rect",{x:2,y:4,width:20,height:16,rx:2}]],
+    lock:         [["rect",{width:18,height:11,x:3,y:11,rx:2}],["path",{d:"M7 11V7a5 5 0 0 1 10 0v4"}]],
+    key:          [["path",{d:"m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"}],["path",{d:"m21 2-9.6 9.6"}],["circle",{cx:7.5,cy:15.5,r:5.5}]],
+    search:       [["path",{d:"m21 21-4.34-4.34"}],["circle",{cx:11,cy:11,r:8}]],
+    "chart-bar":  [["path",{d:"M3 3v16a2 2 0 0 0 2 2h16"}],["path",{d:"M7 16h8"}],["path",{d:"M7 11h12"}],["path",{d:"M7 6h3"}]],
+    bell:         [["path",{d:"M10.268 21a2 2 0 0 0 3.464 0"}],["path",{d:"M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"}]],
+    "credit-card":[["rect",{width:20,height:14,x:2,y:5,rx:2}],["path",{d:"M2 10h20"}]],
+    smartphone:   [["rect",{width:14,height:20,x:5,y:2,rx:2}],["path",{d:"M12 18h.01"}]],
+    rocket:       [["path",{d:"M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"}],["path",{d:"M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"}],["path",{d:"M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"}]],
+    "test-tube":  [["path",{d:"M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5c-1.4 0-2.5-1.1-2.5-2.5V2"}],["path",{d:"M8.5 2h7"}],["path",{d:"M14.5 16h-5"}]],
+    package:      [["path",{d:"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"}],["path",{d:"M12 22V12"}],["path",{d:"M3.29 7 12 12 20.71 7"}]],
+};
+const ICON_KEYS = Object.keys(ICON_NODES);
+
+function guessIconKey(s: string): string {
     const l = s.toLowerCase();
-    if (/user|client|person|human|customer|visitor|me/.test(l))           return "👤";
-    if (/agent|agt|bot|ai|robot|llm|gpt|claude|assistant/.test(l))        return "🤖";
-    if (/api|server|backend|svc|service|micro|http/.test(l))              return "🖥️";
-    if (/db|database|sql|postgres|mysql|mongo|dynamo|data/.test(l))       return "🗄️";
-    if (/cache|redis|memcache/.test(l))                                    return "⚡";
-    if (/mcp|plugin|webhook|hook|connector/.test(l))                       return "🔌";
-    if (/git|github|gitlab|repo|version|commit/.test(l))                   return "🌿";
-    if (/web|browser|frontend|ui|react|next|html/.test(l))                 return "🌐";
-    if (/mem|memory|context|claude\.md|knowledge/.test(l))                 return "🧠";
-    if (/sh|shell|bash|terminal|cmd|cli|exec/.test(l))                     return "⚙️";
-    if (/file|fs|storage|disk|s3|blob|drive/.test(l))                      return "📂";
-    if (/cloud|aws|azure|gcp|infra|deploy/.test(l))                        return "☁️";
-    if (/queue|msg|kafka|rabbit|sqs|pubsub|bus/.test(l))                   return "📨";
-    if (/auth|security|oauth|jwt|sso|iam|key|secret/.test(l))              return "🔐";
-    if (/search|elastic|algolia|query/.test(l))                             return "🔍";
-    if (/log|monitor|metric|grafana|datadog|obs/.test(l))                  return "📊";
-    if (/email|mail|smtp|send/.test(l))                                     return "📧";
-    if (/pay|stripe|billing|invoice|wallet/.test(l))                        return "💳";
-    if (/mobile|app|ios|android|phone/.test(l))                             return "📱";
-    if (/ci|cd|pipeline|build|vercel|netlify|action/.test(l))               return "🚀";
-    if (/test|spec|qa|lint|check/.test(l))                                  return "🧪";
-    if (/notification|alert|notify|push/.test(l))                           return "🔔";
-    return "📦";
+    if (/user|client|person|human|customer|visitor|me/.test(l))            return "user";
+    if (/agent|agt|bot|ai|robot|llm|gpt|claude|assistant/.test(l))         return "bot";
+    if (/api|server|backend|svc|service|micro|http/.test(l))               return "server";
+    if (/db|database|sql|postgres|mysql|mongo|dynamo|data/.test(l))        return "database";
+    if (/cache|redis|memcache/.test(l))                                     return "zap";
+    if (/mcp|plugin|webhook|hook|connector/.test(l))                        return "plug";
+    if (/git|github|gitlab|repo|version|commit/.test(l))                    return "git-branch";
+    if (/web|browser|frontend|ui|react|next|html/.test(l))                  return "globe";
+    if (/mem|memory|context|knowledge/.test(l))                             return "brain";
+    if (/sh|shell|bash|terminal|cmd|cli|exec/.test(l))                      return "settings";
+    if (/file|fs|storage|disk|s3|blob|drive/.test(l))                       return "folder";
+    if (/cloud|aws|azure|gcp|infra|deploy/.test(l))                         return "cloud";
+    if (/queue|msg|kafka|rabbit|sqs|pubsub|bus/.test(l))                    return "mail";
+    if (/auth|security|oauth|jwt|sso|iam|secret/.test(l))                   return "lock";
+    if (/key/.test(l))                                                       return "key";
+    if (/search|elastic|algolia|query/.test(l))                             return "search";
+    if (/log|monitor|metric|grafana|datadog|obs/.test(l))                   return "chart-bar";
+    if (/email|mail|smtp|send/.test(l))                                     return "mail";
+    if (/pay|stripe|billing|invoice|wallet/.test(l))                        return "credit-card";
+    if (/mobile|app|ios|android|phone/.test(l))                             return "smartphone";
+    if (/ci|cd|pipeline|build|vercel|netlify|action/.test(l))               return "rocket";
+    if (/test|spec|qa|lint|check/.test(l))                                  return "test-tube";
+    if (/notification|alert|notify|push/.test(l))                           return "bell";
+    return "package";
+}
+
+function renderIcon(key: string, icx: number, icy: number, size: number): string {
+    const nodes = ICON_NODES[key] ?? ICON_NODES.package;
+    const s = size / 24;
+    const tx = (icx - size / 2).toFixed(1);
+    const ty = (icy - size / 2).toFixed(1);
+    const sw = (1.8 / s).toFixed(2);
+    const elems = nodes.map(([tag, props]) => {
+        const attrs = Object.entries(props).map(([k, v]) => `${k}="${v}"`).join(" ");
+        return `<${tag} ${attrs}/>`;
+    }).join("");
+    return `<g transform="translate(${tx},${ty}) scale(${s.toFixed(4)})" fill="none" stroke="white" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${elems}</g>`;
 }
 
 // ── Parser ────────────────────────────────────────────────────────────────────
@@ -107,8 +149,7 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
     if (!ps.length) return "";
     const N = ps.length;
     const BW = l.boxWidth;
-    const ICON_EXTRA = o.showIcons ? 22 : 0;
-    const BH = Math.max(28, Math.round(BW * 0.31)) + ICON_EXTRA;
+    const BH = Math.max(28, Math.round(BW * 0.31));
     const BR = 6, HS = l.spacing, LP = l.margin ?? 50, MG = l.stepHeight;
     const AH = 8, SW = 50, SH = 36, FS = l.textSize;
     const diagramTitle = d.title ?? DEFAULT_DIAGRAM_TITLE;
@@ -142,9 +183,10 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
         const x = cx(i) - BW / 2;
         parts.push(`<rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="${BR}" fill="${p.color}" stroke="${th.boxStroke}" stroke-width="${th.boxStrokeW}"/>`);
         if (o.showIcons) {
-            const icon = o.icons[p.id] ?? guessIcon(p.label);
-            parts.push(`<text x="${cx(i)}" y="${y + 20}" text-anchor="middle" dominant-baseline="middle" font-family="system-ui,sans-serif" font-size="15">${icon}</text>`);
-            parts.push(`<text x="${cx(i)}" y="${y + BH - 10}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="700" fill="${th.labelFill}">${esc(p.label)}</text>`);
+            const IPAD = 8, ISIZE = Math.min(BH - 10, 18);
+            const iconKey = ICON_NODES[o.icons[p.id]] ? o.icons[p.id] : guessIconKey(p.label);
+            parts.push(renderIcon(iconKey, x + IPAD + ISIZE / 2, y + BH / 2, ISIZE));
+            parts.push(`<text x="${x + IPAD + ISIZE + 5}" y="${y + BH / 2 + 1}" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="700" fill="${th.labelFill}">${esc(p.label)}</text>`);
         } else {
             parts.push(`<text x="${cx(i)}" y="${y+BH/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="700" fill="${th.labelFill}">${esc(p.label)}</text>`);
         }
@@ -339,29 +381,23 @@ function SettingsContent({
                         <div style={{ fontSize: fs(10), fontWeight: 700, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>Icons</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                             {participants.map(p => {
-                                const current = opts.icons[p.id] ?? guessIcon(p.label);
+                                const currentKey = ICON_NODES[opts.icons[p.id]] ? opts.icons[p.id] : guessIconKey(p.label);
                                 return (
                                     <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                        <input
-                                            type="text"
-                                            value={current}
-                                            onChange={e => {
-                                                const chars = [...e.target.value];
-                                                const emoji = chars[chars.length - 1] ?? "📦";
-                                                upd({ icons: { ...opts.icons, [p.id]: emoji } });
-                                            }}
+                                        <div style={{ width: 8, height: 8, borderRadius: 4, background: p.color, flexShrink: 0 }} />
+                                        <span style={{ fontSize: fs(12), color: "#bbb", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.label}</span>
+                                        <select
+                                            value={currentKey}
+                                            onChange={e => upd({ icons: { ...opts.icons, [p.id]: e.target.value } })}
                                             style={{
-                                                width: 44, height: 40, flexShrink: 0,
                                                 background: "#2a2a2c", border: "1px solid #444",
-                                                borderRadius: 10, color: "white",
-                                                fontSize: 20, textAlign: "center",
-                                                outline: "none", cursor: "text",
+                                                borderRadius: 8, color: "white",
+                                                fontSize: fs(11), padding: "4px 6px",
+                                                outline: "none", cursor: "pointer", flexShrink: 0,
                                             }}
-                                        />
-                                        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                                            <div style={{ width: 8, height: 8, borderRadius: 4, background: p.color, flexShrink: 0 }} />
-                                            <span style={{ fontSize: fs(12), color: "#bbb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.label}</span>
-                                        </div>
+                                        >
+                                            {ICON_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+                                        </select>
                                     </div>
                                 );
                             })}
