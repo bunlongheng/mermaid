@@ -138,19 +138,23 @@ function applyColorfulMermaidStyle(svgString: string, opts: Opts, diagramType: s
     const th = THEMES[opts.theme] ?? THEMES.light;
     const f = `'Inter', sans-serif`;
 
+    // ── Strip mermaid's injected <style> — it uses CSS rules that override
+    //    presentation attributes and would lock everything to primaryColor ──
+    doc.querySelectorAll("style").forEach(s => s.remove());
+
     // ── Background ─────────────────────────────────────────────────────────
     const rootBg = svgEl.querySelector(":scope > rect");
     if (rootBg) {
-        rootBg.setAttribute("fill", th.bg);
+        (rootBg as SVGElement).style.fill = th.bg;
     } else {
         const bgRect = doc.createElementNS("http://www.w3.org/2000/svg", "rect");
         bgRect.setAttribute("x", "0"); bgRect.setAttribute("y", "0");
         bgRect.setAttribute("width", "100%"); bgRect.setAttribute("height", "100%");
-        bgRect.setAttribute("fill", th.bg);
+        bgRect.style.fill = th.bg;
         svgEl.insertBefore(bgRect, svgEl.firstChild);
     }
 
-    // ── CSS for HTML labels inside foreignObject ────────────────────────────
+    // ── CSS for foreignObject HTML content (inline styles can't reach inside) ─
     const styleEl = doc.createElementNS("http://www.w3.org/2000/svg", "style");
     styleEl.textContent = `
         .node foreignObject div, .node foreignObject span, .node foreignObject p,
@@ -160,81 +164,76 @@ function applyColorfulMermaidStyle(svgString: string, opts: Opts, diagramType: s
             font-weight: 700 !important;
             font-family: ${f} !important;
         }
-        .edgeLabel foreignObject div, .edgeLabel .label,
-        .messageText, .labelText, .loopText {
+        .edgeLabel foreignObject div, .edgeLabel .label {
             color: ${th.plainTextFill} !important;
             background: transparent !important;
             font-family: ${f} !important;
         }
-        text { font-family: ${f} !important; }
     `;
     svgEl.insertBefore(styleEl, svgEl.firstChild);
 
-    // ── Color nodes ────────────────────────────────────────────────────────
+    // ── Color each node (inline style beats any CSS rule) ──────────────────
     const nodeSelector = NODE_SELECTOR_MAP[diagramType] ?? ".node";
     const nodes = Array.from(doc.querySelectorAll(nodeSelector));
     nodes.forEach((node, i) => {
         const color = PAL[i % PAL.length];
-        // Rectangles (most node types)
-        node.querySelectorAll("rect").forEach(rect => {
-            rect.setAttribute("fill", color);
-            rect.setAttribute("stroke", "none");
-            rect.setAttribute("rx", "8");
-            rect.setAttribute("ry", "8");
+
+        node.querySelectorAll("rect").forEach(el => {
+            const r = el as SVGElement;
+            r.style.fill = color;
+            r.style.stroke = "none";
+            r.setAttribute("rx", "8"); r.setAttribute("ry", "8");
         });
-        // Diamonds / polygons (decision nodes)
-        node.querySelectorAll("polygon").forEach(poly => {
-            poly.setAttribute("fill", color);
-            poly.setAttribute("stroke", "none");
+        node.querySelectorAll("polygon").forEach(el => {
+            const p = el as SVGElement;
+            p.style.fill = color; p.style.stroke = "none";
         });
-        // Circles / ellipses (terminal nodes)
         node.querySelectorAll("circle, ellipse").forEach(el => {
-            (el as SVGElement).setAttribute("fill", color);
-            (el as SVGElement).setAttribute("stroke", "none");
+            const c = el as SVGElement;
+            c.style.fill = color; c.style.stroke = "none";
         });
-        // Path-based shapes (cylinder, asymmetric, etc.)
         node.querySelectorAll("path.basic, path.label-container, path.outer").forEach(el => {
-            (el as SVGElement).setAttribute("fill", color);
-            (el as SVGElement).setAttribute("stroke", "none");
+            const p = el as SVGElement;
+            p.style.fill = color; p.style.stroke = "none";
         });
-        // Direct SVG text labels
-        node.querySelectorAll("text").forEach(t => {
-            t.setAttribute("fill", "#ffffff");
-            t.setAttribute("font-weight", "700");
-            t.setAttribute("font-family", f);
+        node.querySelectorAll("text").forEach(el => {
+            const t = el as SVGElement;
+            t.style.fill = "#ffffff";
+            t.style.fontWeight = "700";
+            t.style.fontFamily = f;
         });
     });
 
-    // ── Pie slices: use PAL if mermaid's selector differs ─────────────────
+    // ── Pie slices ─────────────────────────────────────────────────────────
     if (diagramType === "pie") {
-        const slices = Array.from(doc.querySelectorAll("path.slice, .pieSlice, .slice, path[class*='slice']"));
-        slices.forEach((slice, i) => {
-            (slice as SVGElement).setAttribute("fill", PAL[i % PAL.length]);
-            (slice as SVGElement).setAttribute("stroke", th.bg);
-            (slice as SVGElement).setAttribute("stroke-width", "2");
+        doc.querySelectorAll("path.slice, .pieSlice, .slice, path[class*='slice']").forEach((el, i) => {
+            const s = el as SVGElement;
+            s.style.fill = PAL[i % PAL.length];
+            s.style.stroke = th.bg;
+            s.style.strokeWidth = "2";
         });
     }
 
     // ── Edge paths ─────────────────────────────────────────────────────────
-    doc.querySelectorAll(".edgePath path, .flowchart-link, .path, .transition").forEach(el => {
+    doc.querySelectorAll(".edgePath path, .flowchart-link, .transition").forEach(el => {
         const e = el as SVGElement;
-        e.setAttribute("stroke", "#64748b");
-        e.setAttribute("stroke-width", "1.5");
-        if (!e.getAttribute("fill") || e.getAttribute("fill") === "none") {
-            e.setAttribute("fill", "none");
-        }
+        e.style.stroke = "#64748b";
+        e.style.strokeWidth = "1.5";
+        e.style.fill = "none";
     });
 
     // ── Arrowheads ─────────────────────────────────────────────────────────
     doc.querySelectorAll("marker polygon, marker path, marker circle").forEach(el => {
-        (el as SVGElement).setAttribute("fill", "#64748b");
-        (el as SVGElement).setAttribute("stroke", "none");
+        const m = el as SVGElement;
+        m.style.fill = "#64748b";
+        m.style.stroke = "none";
     });
 
-    // ── SVG-level text (titles, gantt labels, etc.) ────────────────────────
-    doc.querySelectorAll("svg > g > text, .titleText, .sectionTitle").forEach(t => {
-        t.setAttribute("fill", th.titleFill);
-        (t as SVGElement).setAttribute("font-family", f);
+    // ── SVG text outside nodes (titles, axis labels, etc.) ─────────────────
+    doc.querySelectorAll(".titleText, .sectionTitle").forEach(el => {
+        const t = el as SVGElement;
+        t.style.fill = th.titleFill;
+        t.style.fontFamily = f;
     });
 
     return new XMLSerializer().serializeToString(doc);
