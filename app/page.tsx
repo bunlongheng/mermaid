@@ -135,7 +135,7 @@ const LIFELINE_DASH: Record<string, { da: string; cap?: string; sw?: number }> =
     circle: { da: "0 8", cap: "round", sw: 3 },
     dot:    { da: "2 5" },
     small:  { da: "7 5" },
-    long:   { da: "14 6" },
+    long:   { da: "20 8" },
 };
 
 const THEMES: Record<string, { bg: string; titleFill: string; boxStroke: string; boxStrokeW: string; labelFill: string; plainTextFill: string }> = {
@@ -170,8 +170,8 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
     const lifelineSW = ld.sw ?? 1.5;
     const lifelineCapAttr = ld.cap ? ` stroke-linecap="${ld.cap}"` : "";
     const th = THEMES[o.theme] ?? THEMES.light;
-    // circle-dot style for dashed (response) arrows
-    const DASHED_STYLE = ` stroke-dasharray="0 7" stroke-linecap="round" stroke-width="2.5"`;
+    // long-dash style for dashed (response) arrows
+    const DASHED_STYLE = ` stroke-dasharray="12 5" stroke-width="1.5"`;
     const parts: string[] = [];
     parts.push(`<rect width="${W}" height="${H}" fill="${th.bg}"/>`);
     parts.push(`<text x="${W / 2}" y="${TOP_PAD + TITLE_H / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="24" font-weight="800" fill="${th.titleFill}">${esc(diagramTitle)}</text>`);
