@@ -114,6 +114,132 @@ function detectDiagramType(code: string): string {
     return MERMAID_TYPES[first] ?? "sequence";
 }
 
+// ── Colorful post-processor for mermaid SVG ───────────────────────────────────
+const NODE_SELECTOR_MAP: Record<string, string> = {
+    flowchart: ".node",
+    class:     ".classGroup",
+    er:        ".node",
+    state:     ".node",
+    gantt:     ".task",
+    pie:       ".slice",
+    git:       ".commit-bullet",
+    mindmap:   ".mindmap-node",
+    timeline:  ".timeline-event",
+    quadrant:  ".quadrant-point",
+};
+
+function applyColorfulMermaidStyle(svgString: string, opts: Opts, diagramType: string): string {
+    if (typeof window === "undefined") return svgString;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgString, "image/svg+xml");
+    const svgEl = doc.querySelector("svg");
+    if (!svgEl) return svgString;
+
+    const th = THEMES[opts.theme] ?? THEMES.light;
+    const f = `'Inter', sans-serif`;
+
+    // ── Background ─────────────────────────────────────────────────────────
+    const rootBg = svgEl.querySelector(":scope > rect");
+    if (rootBg) {
+        rootBg.setAttribute("fill", th.bg);
+    } else {
+        const bgRect = doc.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bgRect.setAttribute("x", "0"); bgRect.setAttribute("y", "0");
+        bgRect.setAttribute("width", "100%"); bgRect.setAttribute("height", "100%");
+        bgRect.setAttribute("fill", th.bg);
+        svgEl.insertBefore(bgRect, svgEl.firstChild);
+    }
+
+    // ── CSS for HTML labels inside foreignObject ────────────────────────────
+    const styleEl = doc.createElementNS("http://www.w3.org/2000/svg", "style");
+    styleEl.textContent = `
+        .node foreignObject div, .node foreignObject span, .node foreignObject p,
+        .node .nodeLabel, .node .label div, .node .label p, .node .label span,
+        .classGroup foreignObject div, .classGroup foreignObject span {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            font-family: ${f} !important;
+        }
+        .edgeLabel foreignObject div, .edgeLabel .label,
+        .messageText, .labelText, .loopText {
+            color: ${th.plainTextFill} !important;
+            background: transparent !important;
+            font-family: ${f} !important;
+        }
+        text { font-family: ${f} !important; }
+    `;
+    svgEl.insertBefore(styleEl, svgEl.firstChild);
+
+    // ── Color nodes ────────────────────────────────────────────────────────
+    const nodeSelector = NODE_SELECTOR_MAP[diagramType] ?? ".node";
+    const nodes = Array.from(doc.querySelectorAll(nodeSelector));
+    nodes.forEach((node, i) => {
+        const color = PAL[i % PAL.length];
+        // Rectangles (most node types)
+        node.querySelectorAll("rect").forEach(rect => {
+            rect.setAttribute("fill", color);
+            rect.setAttribute("stroke", "none");
+            rect.setAttribute("rx", "8");
+            rect.setAttribute("ry", "8");
+        });
+        // Diamonds / polygons (decision nodes)
+        node.querySelectorAll("polygon").forEach(poly => {
+            poly.setAttribute("fill", color);
+            poly.setAttribute("stroke", "none");
+        });
+        // Circles / ellipses (terminal nodes)
+        node.querySelectorAll("circle, ellipse").forEach(el => {
+            (el as SVGElement).setAttribute("fill", color);
+            (el as SVGElement).setAttribute("stroke", "none");
+        });
+        // Path-based shapes (cylinder, asymmetric, etc.)
+        node.querySelectorAll("path.basic, path.label-container, path.outer").forEach(el => {
+            (el as SVGElement).setAttribute("fill", color);
+            (el as SVGElement).setAttribute("stroke", "none");
+        });
+        // Direct SVG text labels
+        node.querySelectorAll("text").forEach(t => {
+            t.setAttribute("fill", "#ffffff");
+            t.setAttribute("font-weight", "700");
+            t.setAttribute("font-family", f);
+        });
+    });
+
+    // ── Pie slices: use PAL if mermaid's selector differs ─────────────────
+    if (diagramType === "pie") {
+        const slices = Array.from(doc.querySelectorAll("path.slice, .pieSlice, .slice, path[class*='slice']"));
+        slices.forEach((slice, i) => {
+            (slice as SVGElement).setAttribute("fill", PAL[i % PAL.length]);
+            (slice as SVGElement).setAttribute("stroke", th.bg);
+            (slice as SVGElement).setAttribute("stroke-width", "2");
+        });
+    }
+
+    // ── Edge paths ─────────────────────────────────────────────────────────
+    doc.querySelectorAll(".edgePath path, .flowchart-link, .path, .transition").forEach(el => {
+        const e = el as SVGElement;
+        e.setAttribute("stroke", "#64748b");
+        e.setAttribute("stroke-width", "1.5");
+        if (!e.getAttribute("fill") || e.getAttribute("fill") === "none") {
+            e.setAttribute("fill", "none");
+        }
+    });
+
+    // ── Arrowheads ─────────────────────────────────────────────────────────
+    doc.querySelectorAll("marker polygon, marker path, marker circle").forEach(el => {
+        (el as SVGElement).setAttribute("fill", "#64748b");
+        (el as SVGElement).setAttribute("stroke", "none");
+    });
+
+    // ── SVG-level text (titles, gantt labels, etc.) ────────────────────────
+    doc.querySelectorAll("svg > g > text, .titleText, .sectionTitle").forEach(t => {
+        t.setAttribute("fill", th.titleFill);
+        (t as SVGElement).setAttribute("font-family", f);
+    });
+
+    return new XMLSerializer().serializeToString(doc);
+}
+
 // ── Parser ────────────────────────────────────────────────────────────────────
 const DEFAULT_DIAGRAM_TITLE = "Sequence Diagram";
 
@@ -695,11 +821,25 @@ export default function SequenceTool() {
     useEffect(() => {
         if (!mounted || isSequence) { setMermaidSvg(""); return; }
         let cancelled = false;
-        const mermaidTheme = opts.theme === "dark" || opts.theme === "monokai" ? "dark" : "default";
+        const currentType = detectDiagramType(code);
         import("mermaid").then(({ default: mermaid }) => {
-            mermaid.initialize({ startOnLoad: false, theme: mermaidTheme as "dark" | "default", securityLevel: "loose" });
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: "base",
+                themeVariables: {
+                    background: THEMES[opts.theme]?.bg ?? "#ffffff",
+                    primaryColor: PAL[0],
+                    primaryTextColor: "#ffffff",
+                    primaryBorderColor: "transparent",
+                    lineColor: "#64748b",
+                    fontFamily: "'Inter', sans-serif",
+                    edgeLabelBackground: "transparent",
+                    clusterBkg: "transparent",
+                },
+                securityLevel: "loose",
+            });
             mermaid.render("mermaid-svg-" + Date.now(), code).then(({ svg: renderedSvg }) => {
-                if (!cancelled) setMermaidSvg(renderedSvg);
+                if (!cancelled) setMermaidSvg(applyColorfulMermaidStyle(renderedSvg, opts, currentType));
             }).catch(() => {
                 if (!cancelled) setMermaidSvg("");
             });
