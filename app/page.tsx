@@ -259,7 +259,7 @@ function parse(code: string): Diagram {
         if (!l || /^(%%|sequenceDiagram|autonumber|---|```)/.test(l)) continue;
         const tm = l.match(/^title:\s*(.+)$/i);
         if (tm) { title = tm[1].trim(); continue; }
-        const pm = l.match(/^participant\s+(\S+)(?:\s+as\s+(.+))?$/i);
+        const pm = l.match(/^(?:participant|actor)\s+(\S+)(?:\s+as\s+(.+))?$/i);
         if (pm) { addP(pm[1], pm[2]); continue; }
         const mm = l.match(/^(\w+)\s*(-->>|->>|-->|->)\s*(\w+):\s*(.*)$/);
         if (mm) {
@@ -368,7 +368,7 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
             if (o.coloredText) {
                 const pillH = FS + 8, pillW = Math.max(40, msg.text.length * (FS * 0.62) + 12);
                 const pillX = fx + SW + 5, pillY = y + SH / 2 - pillH / 2;
-                parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fp.color}"/>`);
+                parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fp.color}" fill-opacity="0.5"/>`);
                 parts.push(`<text x="${pillX + pillW / 2}" y="${pillY + pillH / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="600" fill="${pillTextFill}">${esc(msg.text)}</text>`);
             } else {
                 parts.push(`<text x="${fx+SW+5}" y="${y+SH/2+1}" dominant-baseline="middle" font-family="${f}" font-size="${FS}" fill="${tc}">${esc(msg.text)}</text>`);
@@ -389,8 +389,8 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
             const mid = (fx + tx) / 2;
             if (o.coloredText) {
                 const pillH = FS + 8, pillW = Math.max(40, msg.text.length * (FS * 0.62) + 12);
-                const pillY = y - pillH - 10;
-                parts.push(`<rect x="${mid - pillW / 2}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fp.color}"/>`);
+                const pillY = y - pillH / 2;
+                parts.push(`<rect x="${mid - pillW / 2}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fp.color}" fill-opacity="0.5"/>`);
                 parts.push(`<text x="${mid}" y="${pillY + pillH / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="600" fill="${pillTextFill}">${esc(msg.text)}</text>`);
             } else {
                 parts.push(`<text x="${mid}" y="${y-8}" text-anchor="middle" font-family="${f}" font-size="${FS}" fill="${tc}">${esc(msg.text)}</text>`);
@@ -910,10 +910,8 @@ export default function SequenceTool() {
     const updL = (p: Partial<Layout>) => setLayout(l => ({ ...l, ...p }));
 
     // ── Exports ───────────────────────────────────────────────────────────
-    const EXPORT_LAYOUT: Layout = { stepHeight: 58, boxWidth: 160, spacing: 210, textSize: 14, margin: 60, vPad: 44 };
-
     const exportPng = useCallback(() => {
-        const exportSvg = isSequence ? buildSvg(diagram, opts, EXPORT_LAYOUT) : mermaidSvg;
+        const exportSvg = isSequence ? buildSvg(diagram, opts, layout) : mermaidSvg;
         if (!exportSvg) return;
         const url = URL.createObjectURL(new Blob([exportSvg], { type: "image/svg+xml" }));
         const img = new Image();
@@ -921,13 +919,13 @@ export default function SequenceTool() {
             const c = document.createElement("canvas");
             c.width = img.width * 2; c.height = img.height * 2;
             const ctx = c.getContext("2d")!;
-            ctx.scale(2, 2); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, img.width, img.height);
+            ctx.scale(2, 2); ctx.fillStyle = THEMES[opts.theme]?.bg ?? "#ffffff"; ctx.fillRect(0, 0, img.width, img.height);
             ctx.drawImage(img, 0, 0);
             c.toBlob(b => { if (!b) return; const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "diagram.png"; a.click(); });
             URL.revokeObjectURL(url);
         };
         img.src = url;
-    }, [diagram, opts, isSequence, mermaidSvg]);
+    }, [diagram, opts, layout, isSequence, mermaidSvg]);
 
     const exportCode = useCallback(() => {
         const a = document.createElement("a");
