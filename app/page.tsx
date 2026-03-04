@@ -570,7 +570,7 @@ function SettingsContent({
                         <div style={{ fontSize: fs(10), fontWeight: 700, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Layout</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                             <SliderRow label="Height" value={layout.stepHeight} min={30} max={80} fontSize={fs(12)} onChange={v => updL({ stepHeight: v })} />
-                            <SliderRow label="Width" value={layout.boxWidth} min={80} max={180} fontSize={fs(12)} onChange={v => updL({ boxWidth: v })} />
+                            <SliderRow label="Width" value={layout.boxWidth} min={80} max={400} fontSize={fs(12)} onChange={v => updL({ boxWidth: v })} />
                             <SliderRow label="Gap" value={layout.spacing} min={120} max={450} fontSize={fs(12)} onChange={v => updL({ spacing: v })} />
                             <SliderRow label="V.Gap" value={layout.vPad ?? 44} min={20} max={120} fontSize={fs(12)} onChange={v => updL({ vPad: v })} />
                             <SliderRow label="Font" value={layout.textSize} min={10} max={20} unit="px" fontSize={fs(12)} onChange={v => updL({ textSize: v })} />
