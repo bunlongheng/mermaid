@@ -352,7 +352,7 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
             parts.push(`<text x="${cx(i)}" y="${y+BH/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="700" fill="${th.labelFill}">${esc(p.label)}</text>`);
         }
         if (o.showBigNumbers) {
-            parts.push(`<text x="${cx(i)}" y="${TOP_PAD + TITLE_H + 50 + BIG_NUM_H / 2}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="80" font-weight="900" fill="#000000" opacity="0.75">${i + 1}</text>`);
+            parts.push(`<text x="${cx(i)}" y="${TOP_PAD + TITLE_H + 50 + BIG_NUM_H / 2}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="80" font-weight="900" fill="${o.theme === "light" ? "#000000" : "#ffffff"}" opacity="0.75">${i + 1}</text>`);
         }
     };
     ps.forEach((p, i) => renderBox(p, i, TOP_PAD + TITLE_H + TP));
@@ -404,8 +404,8 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
             }
         }
         if (o.coloredNumbers) {
-            parts.push(`<circle cx="${fx}" cy="${y}" r="10" fill="${fp.color}" fill-opacity="0.2" stroke="${fp.color}" stroke-width="2"/>`);
-            parts.push(`<text x="${fx}" y="${y+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="11" font-weight="700" fill="#000000">${msg.displayStep ?? msg.step}</text>`);
+            parts.push(`<circle cx="${fx}" cy="${y}" r="10" fill="${fp.color}" stroke="${fp.color}" stroke-width="2"/>`);
+            parts.push(`<text x="${fx}" y="${y+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="11" font-weight="700" fill="white">${msg.displayStep ?? msg.step}</text>`);
         }
     });
     ps.forEach((p, i) => renderBox(p, i, H - BOT_PAD - BH));
