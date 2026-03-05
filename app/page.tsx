@@ -7,10 +7,10 @@ interface Participant { id: string; label: string; color: string }
 type Arrow = "solid" | "dashed";
 interface SeqMsg { from: string; to: string; text: string; arrow: Arrow; step: number; displayStep?: number }
 interface Diagram { participants: Participant[]; messages: SeqMsg[]; title?: string }
-interface Opts { coloredLines: boolean; coloredNumbers: boolean; coloredText: boolean; font: string; lifelineDash: string; theme: string; showIcons: boolean; icons: Record<string,string>; showBigNumbers: boolean }
+interface Opts { coloredLines: boolean; coloredNumbers: boolean; coloredText: boolean; font: string; lifelineDash: string; theme: string; showIcons: boolean; icons: Record<string,string>; showBigNumbers: boolean; boxOverlay: string }
 interface Layout { stepHeight: number; boxWidth: number; spacing: number; textSize: number; margin: number; vPad: number }
 
-const DEFAULT_OPTS: Opts = { coloredLines: true, coloredNumbers: true, coloredText: true, font: "Inter", lifelineDash: "long", theme: "light", showIcons: false, icons: {}, showBigNumbers: false };
+const DEFAULT_OPTS: Opts = { coloredLines: true, coloredNumbers: true, coloredText: true, font: "Inter", lifelineDash: "long", theme: "light", showIcons: false, icons: {}, showBigNumbers: false, boxOverlay: "none" };
 const DEFAULT_LAYOUT: Layout = { stepHeight: 42, boxWidth: 141, spacing: 250, textSize: 13, margin: 120, vPad: 44 };
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -329,6 +329,7 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
     // long-dash style for dashed (response) arrows
     const DASHED_STYLE = ` stroke-dasharray="12 5" stroke-width="1.5"`;
     const parts: string[] = [];
+    const defs: string[] = [];
     parts.push(`<rect width="${W}" height="${H}" fill="${th.bg}"/>`);
     const titleY = TOP_PAD + TITLE_H / 2 + 1;
     const now = new Date();
@@ -349,6 +350,31 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
         const bw = pBW[i];
         const x = cx(i) - bw / 2;
         parts.push(`<rect x="${x}" y="${y}" width="${bw}" height="${BH}" rx="${BR}" fill="${p.color}" stroke="${th.boxStroke}" stroke-width="${th.boxStrokeW}"/>`);
+        if (o.boxOverlay !== "none") {
+            const clipId = `bcp${i}_${Math.round(y)}`;
+            defs.push(`<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${bw}" height="${BH}" rx="${BR}"/></clipPath>`);
+            const cg = `clip-path="url(#${clipId})"`;
+            const bcx = x + bw / 2, bcy = y + BH / 2;
+            if (o.boxOverlay === "gloss") {
+                parts.push(`<rect x="${x}" y="${y}" width="${bw}" height="${BH * 0.55}" ${cg} fill="white" fill-opacity="0.18"/>`);
+                parts.push(`<rect x="${x}" y="${y}" width="${bw}" height="${BH * 0.22}" ${cg} fill="white" fill-opacity="0.12"/>`);
+            } else if (o.boxOverlay === "hatch") {
+                const lines: string[] = [];
+                const step = 9;
+                for (let j = -BH; j < bw + BH; j += step) lines.push(`<line x1="${x+j}" y1="${y+BH}" x2="${x+j+BH}" y2="${y}"/>`);
+                parts.push(`<g ${cg} stroke="white" stroke-width="1" opacity="0.18">${lines.join("")}</g>`);
+            } else if (o.boxOverlay === "dots") {
+                const circles: string[] = [];
+                const gap = 7;
+                for (let dy = gap / 2; dy < BH; dy += gap)
+                    for (let dx = gap / 2; dx < bw; dx += gap)
+                        circles.push(`<circle cx="${x+dx}" cy="${y+dy}" r="1.2"/>`);
+                parts.push(`<g ${cg} fill="white" opacity="0.22">${circles.join("")}</g>`);
+            } else if (o.boxOverlay === "pulse") {
+                const maxR = Math.max(bw, BH) * 0.8;
+                parts.push(`<g ${cg} fill="none" stroke="white" stroke-width="1" opacity="0.22"><circle cx="${bcx}" cy="${bcy}" r="${BH*0.28}"/><circle cx="${bcx}" cy="${bcy}" r="${BH*0.55}"/><circle cx="${bcx}" cy="${bcy}" r="${BH*0.82}"/><circle cx="${bcx}" cy="${bcy}" r="${maxR}"/></g>`);
+            }
+        }
         if (o.showIcons) {
             const IPAD = 10, GAP = 6, ISIZE = Math.min(BH - 10, 18);
             const iconKey = ICON_NODES[o.icons[p.id]] ? o.icons[p.id] : guessIconKey(p.label);
@@ -428,6 +454,7 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
         }
     });
     ps.forEach((p, i) => renderBox(p, i, H - BOT_PAD - BH));
+    if (defs.length) parts.splice(1, 0, `<defs>${defs.join("")}</defs>`);
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${parts.join("")}</svg>`;
 }
 
@@ -551,6 +578,33 @@ function SettingsContent({
                                         }} />
                                     </div>
                                 </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div style={{ height: 1, background: "#222" }} />
+
+                    {/* Box Overlay */}
+                    <div>
+                        <div style={{ fontSize: fs(10), fontWeight: 700, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Overlay</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                            {([
+                                ["none",  "None",   "—"],
+                                ["gloss", "Gloss",  "✦"],
+                                ["hatch", "Hatch",  "▨"],
+                                ["dots",  "Dots",   "⁘"],
+                                ["pulse", "Pulse",  "◎"],
+                            ] as const).map(([v, label, icon]) => (
+                                <button key={v} onClick={() => upd({ boxOverlay: v })}
+                                    style={{
+                                        padding: mobile ? "10px 4px" : "8px 4px", borderRadius: 10,
+                                        fontSize: fs(11), fontWeight: 700, letterSpacing: "0.02em",
+                                        border: opts.boxOverlay === v ? "2px solid #0a84ff" : "2px solid transparent",
+                                        background: "#1e1e20", color: opts.boxOverlay === v ? "#0a84ff" : "#888",
+                                        cursor: "pointer", transition: "border 0.15s, color 0.15s",
+                                        display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                                    }}
+                                ><span>{icon}</span><span>{label}</span></button>
                             ))}
                         </div>
                     </div>
@@ -1342,16 +1396,7 @@ export default function SequenceTool() {
                 {/* Desktop: Settings panel */}
                 {!isMobile && showSettings && (
                     <div className="shrink-0 flex flex-col" style={{ width: 268, background: "#161618", borderLeft: "1px solid #2a2a2a" }}>
-                        <div className="flex items-center justify-between shrink-0"
-                            style={{ padding: "0 16px", height: 54, borderBottom: "1px solid #2a2a2a" }}>
-                            <span style={{ fontSize: 14, fontWeight: 600, color: "#fff", letterSpacing: "-0.2px" }}>Settings</span>
-                            <button onClick={() => setShowSettings(false)}
-                                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/10 transition-all"
-                                style={{ color: "#555" }}>
-                                <X size={14} strokeWidth={2.5} />
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto" style={{ padding: "20px 16px" }}>
+                            <div className="flex-1 overflow-y-auto" style={{ padding: "20px 16px" }}>
                             <SettingsContent opts={opts} layout={layout} copied={copied} participants={diagram.participants} isSequence={isSequence}
                                 upd={upd} updL={updL} exportPng={exportPng} exportCode={exportCode} exportJson={exportJson} copyCode={copyCode} />
                         </div>
@@ -1425,17 +1470,6 @@ export default function SequenceTool() {
                         {/* Pull handle */}
                         <div className="flex justify-center pt-3 pb-1 shrink-0">
                             <div style={{ width: 36, height: 4, background: "#333", borderRadius: 2 }} />
-                        </div>
-                        {/* Sheet header */}
-                        <div className="flex items-center justify-between shrink-0"
-                            style={{ padding: "8px 20px 12px", borderBottom: "1px solid #2a2a2a" }}>
-                            <span style={{ fontSize: 17, fontWeight: 600, color: "#fff", letterSpacing: "-0.3px" }}>Settings</span>
-                            <button
-                                onClick={() => setShowSettings(false)}
-                                className="w-8 h-8 rounded-full flex items-center justify-center"
-                                style={{ background: "#222", color: "#666" }}>
-                                <X size={15} strokeWidth={2.5} />
-                            </button>
                         </div>
                         {/* Sheet content */}
                         <div className="flex-1 overflow-y-auto" style={{ padding: "20px 20px 40px" }}>
