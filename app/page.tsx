@@ -1,6 +1,23 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Code2, SlidersHorizontal, X } from "lucide-react";
+import Editor from "react-simple-code-editor";
+import Prism from "prismjs";
+
+// ── Mermaid Prism grammar ──────────────────────────────────────────────────────
+Prism.languages.mermaid = {
+    comment:  { pattern: /%%.*/, greedy: true },
+    title:    { pattern: /^title:.+/m, inside: { keyword: /^title:/, string: /.+/ } },
+    keyword:  /\b(sequenceDiagram|participant|actor|as|autonumber|loop|alt|else|end|opt|par|and|critical|break|rect|Note|over|left of|right of|activate|deactivate|graph|flowchart|classDiagram|stateDiagram|erDiagram|gantt|pie|mindmap|timeline|gitGraph|subgraph)\b/,
+    arrow:    /-->>|->>|-->|->|==>/,
+    label:    { pattern: /:.+/, inside: { punctuation: /:/, string: /.+/ } },
+    number:   /\b\d+\b/,
+    operator: /[|{}[\]()]/,
+};
+
+function highlight(code: string) {
+    return Prism.highlight(code, Prism.languages.mermaid, "mermaid");
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Participant { id: string; label: string; color: string }
@@ -313,11 +330,11 @@ const UI_THEMES: Record<string, UiTheme> = {
     light: {
         headerBg: "#111113",   headerBorder: "#27272a",   headerText: "#f4f4f5",
         canvasBg:  "#c8d0da",
-        panelBg:   "#161618",  panelBorder:  "#2a2a2a",
-        tabBarBg:  "#111",     activeTab:    "#2a2a2c",   activeTabText: "#fff", inactiveTabText: "#555",
-        sectionLabel: "#444",  bodyText:     "#bbb",      divider: "#222",
+        panelBg:   "#f1f5f9",  panelBorder:  "#e2e8f0",
+        tabBarBg:  "#e2e8f0",  activeTab:    "#ffffff",   activeTabText: "#1e293b", inactiveTabText: "#94a3b8",
+        sectionLabel: "#94a3b8", bodyText:   "#334155",   divider: "#e2e8f0",
         toggleOn:  "#34c759",  accent:       "#0a84ff",
-        overlayBtnBg: "#1e1e20", pullHandle: "#333",
+        overlayBtnBg: "#e8eef5", pullHandle: "#cbd5e1",
         codeBg:    "#ffffff",  codeHeaderBg: "#f8fafc",  codeBorder: "#e2e8f0", codeText: "#1e293b",
         zoomBg:    "white",    zoomBorder:   "#e2e8f0",  zoomText: "#1e293b",   zoomMuted: "#64748b", zoomDivider: "#e2e8f0",
         badgeBg:   "#0a84ff22", badgeText:   "#0a84ff",
@@ -1222,7 +1239,7 @@ export default function SequenceTool() {
         });
     }, []);
 
-    const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const handlePaste = useCallback((e: React.ClipboardEvent<HTMLElement>) => {
         const pasted = e.clipboardData.getData("text");
         const parsed = parse(pasted);
         if (parsed.participants.length >= 2) setTimeout(fireConfetti, 150);
@@ -1233,6 +1250,16 @@ export default function SequenceTool() {
 
     return (
         <div className="h-screen w-screen flex flex-col overflow-hidden" style={{ fontFamily: "Inter, sans-serif" }}>
+            <style>{`
+                .token.comment  { color: #727072; font-style: italic; }
+                .token.keyword  { color: #FF6188; font-weight: 600; }
+                .token.arrow    { color: #78DCE8; }
+                .token.string   { color: #FFD866; }
+                .token.number   { color: #AB9DF2; }
+                .token.operator { color: #FC9867; }
+                .token.punctuation { color: #727072; }
+                .npm__react-simple-code-editor__textarea { outline: none !important; }
+            `}</style>
 
             {/* ── HEADER ── */}
             <header className="flex items-center px-4 shrink-0"
@@ -1294,22 +1321,23 @@ export default function SequenceTool() {
                                     >{copied ? "Copied" : "Copy"}</button>
                                 </div>
                             </div>
-                            <textarea
-                                data-testid="code-editor"
-                                className="flex-1 resize-none outline-none p-4"
-                                spellCheck={false}
-                                value={code}
-                                onChange={e => setCode(e.target.value)}
-                                onPaste={handlePaste}
-                                style={{
-                                    background: "transparent",
-                                    color: ut.codeText,
-                                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                                    fontSize: "9px",
-                                    lineHeight: 1.75,
-                                    border: "none",
-                                }}
-                            />
+                            <div className="flex-1 overflow-auto" style={{ minHeight: 0 }}>
+                                <Editor
+                                    value={code}
+                                    onValueChange={setCode}
+                                    highlight={highlight}
+                                    padding={16}
+                                    spellCheck={false}
+                                    onPaste={handlePaste}
+                                    style={{
+                                        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                        fontSize: "9px",
+                                        lineHeight: 1.75,
+                                        minHeight: "100%",
+                                        color: ut.codeText,
+                                    }}
+                                />
+                            </div>
                         </div>
                         {/* Drag handle */}
                         <div
@@ -1529,25 +1557,23 @@ export default function SequenceTool() {
                             </button>
                         </div>
                     </div>
-                    <textarea
-                        className="flex-1 resize-none outline-none"
-                        spellCheck={false}
-                        autoComplete="off"
-                        autoCorrect="off"
-                        autoCapitalize="off"
-                        value={code}
-                        onChange={e => setCode(e.target.value)}
-                        onPaste={handlePaste}
-                        style={{
-                            background: "transparent",
-                            color: ut.codeText,
-                            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                            fontSize: "11px",
-                            lineHeight: 1.8,
-                            border: "none",
-                            padding: "16px",
-                        }}
-                    />
+                    <div className="flex-1 overflow-auto" style={{ minHeight: 0 }}>
+                        <Editor
+                            value={code}
+                            onValueChange={setCode}
+                            highlight={highlight}
+                            padding={16}
+                            spellCheck={false}
+                            onPaste={handlePaste}
+                            style={{
+                                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                fontSize: "11px",
+                                lineHeight: 1.8,
+                                minHeight: "100%",
+                                color: ut.codeText,
+                            }}
+                        />
+                    </div>
                     {/* Done button */}
                     <div className="shrink-0 px-4 py-3" style={{ borderTop: `1px solid ${ut.codeBorder}`, background: ut.codeHeaderBg }}>
                         <button
