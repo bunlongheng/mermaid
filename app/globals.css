@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'DSEG7Modern';
+  src: url('https://cdn.jsdelivr.net/npm/dseg@0.46.0/fonts/DSEG7-Modern/DSEG7Modern-Regular.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/npm/dseg@0.46.0/fonts/DSEG7-Modern/DSEG7Modern-Regular.woff') format('woff');
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
   padding: 0;

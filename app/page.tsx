@@ -26,14 +26,15 @@ interface Participant { id: string; label: string; color: string }
 type Arrow = "solid" | "dashed";
 interface SeqMsg { from: string; to: string; text: string; arrow: Arrow; step: number; displayStep?: number }
 interface Diagram { participants: Participant[]; messages: SeqMsg[]; title?: string }
-interface Opts { coloredLines: boolean; coloredNumbers: boolean; coloredText: boolean; font: string; lifelineDash: string; theme: string; showIcons: boolean; icons: Record<string,string>; showBigNumbers: boolean; boxOverlay: string }
+interface Opts { coloredLines: boolean; coloredNumbers: boolean; coloredText: boolean; font: string; lifelineDash: string; theme: string; showIcons: boolean; icons: Record<string,string>; boxOverlay: string; autoLayout: boolean }
 interface Layout { stepHeight: number; boxWidth: number; spacing: number; textSize: number; margin: number; vPad: number }
 
-const DEFAULT_OPTS: Opts = { coloredLines: true, coloredNumbers: true, coloredText: true, font: "Inter", lifelineDash: "long", theme: "light", showIcons: false, icons: {}, showBigNumbers: false, boxOverlay: "none" };
+const DEFAULT_OPTS: Opts = { coloredLines: true, coloredNumbers: true, coloredText: true, font: "Roboto", lifelineDash: "solid", theme: "dark", showIcons: false, icons: {}, boxOverlay: "none", autoLayout: true };
 const DEFAULT_LAYOUT: Layout = { stepHeight: 42, boxWidth: 141, spacing: 250, textSize: 13, margin: 120, vPad: 44 };
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const PAL = ["#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#f43f5e","#84cc16","#0891b2"];
+const PAL_MONOKAI = ["#f92672","#ff6188","#ff6da2","#fc9867","#ffd866","#a9dc76","#23bbad","#25d9c8","#2abed9","#78dce8","#ab9df2"];
 
 // ── Icon system (Lucide-sourced SVG paths, white stroke) ──────────────────────
 type INode = [string, Record<string, string | number>];
@@ -304,16 +305,16 @@ function esc(s: string) {
 }
 
 const LIFELINE_DASH: Record<string, { da: string; cap?: string; sw?: number }> = {
-    circle: { da: "0 8", cap: "round", sw: 3 },
-    dot:    { da: "2 5" },
-    small:  { da: "7 5" },
-    long:   { da: "20 8" },
+    solid: { da: "none" },
+    dot:   { da: "2 5" },
+    small: { da: "7 5" },
+    long:  { da: "20 8" },
 };
 
 const THEMES: Record<string, { bg: string; titleFill: string; boxStroke: string; boxStrokeW: string; labelFill: string; plainTextFill: string }> = {
     light:   { bg: "#ffffff", titleFill: "#1e293b",  boxStroke: "#000000", boxStrokeW: "2",   labelFill: "#000000", plainTextFill: "#1e293b" },
     dark:    { bg: "#16161e", titleFill: "#c0caf5",  boxStroke: "none",    boxStrokeW: "0",   labelFill: "white",   plainTextFill: "#c0caf5" },
-    monokai: { bg: "#272822", titleFill: "#f8f8f2",  boxStroke: "none",    boxStrokeW: "0",   labelFill: "#272822", plainTextFill: "#f8f8f2" },
+    monokai: { bg: "#2C2B2F", titleFill: "#f8f8f2",  boxStroke: "none",    boxStrokeW: "0",   labelFill: "#2C2B2F", plainTextFill: "#f8f8f2" },
 };
 
 type UiTheme = {
@@ -343,8 +344,8 @@ const UI_THEMES: Record<string, UiTheme> = {
     },
     dark: {
         headerBg: "#0d0e14",   headerBorder: "#1e2030",   headerText: "#c0caf5",
-        canvasBg:  "#13131a",
-        panelBg:   "#16161e",  panelBorder:  "#1e2030",
+        canvasBg:  "#252636",
+        panelBg:   "#0f1017",  panelBorder:  "#1e2030",
         tabBarBg:  "#0d0e14",  activeTab:    "#1e2030",   activeTabText: "#c0caf5", inactiveTabText: "#565f89",
         sectionLabel: "#565f89", bodyText:   "#a9b1d6",   divider: "#1e2030",
         toggleOn:  "#7dcfff",  accent:       "#7aa2f7",
@@ -355,8 +356,8 @@ const UI_THEMES: Record<string, UiTheme> = {
     },
     monokai: {
         headerBg: "#221F22",   headerBorder: "#403E41",   headerText: "#FCFCFA",
-        canvasBg:  "#19171a",
-        panelBg:   "#2D2A2E",  panelBorder:  "#403E41",
+        canvasBg:  "#39383C",
+        panelBg:   "#2C2B2F",  panelBorder:  "#403E41",
         tabBarBg:  "#221F22",  activeTab:    "#403E41",   activeTabText: "#FCFCFA", inactiveTabText: "#727072",
         sectionLabel: "#727072", bodyText:   "#FCFCFA",   divider: "#403E41",
         toggleOn:  "#A9DC76",  accent:       "#AB9DF2",
@@ -378,8 +379,7 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
     const TOP_PAD = l.margin;
     const BOT_PAD = l.margin;
     const TITLE_H = 68;
-    const BIG_NUM_H = o.showBigNumbers ? 100 : 0;
-    const TP = 50 + BIG_NUM_H;
+    const TP = 50;
     // Auto-fit box width to label content; Width slider = minimum / extra padding
     const HPAD = 24, ICON_W = o.showIcons ? 26 : 0;
     const pBW = ps.map(p => Math.max(l.boxWidth, Math.ceil(p.label.length * (FS * 0.65) + ICON_W + HPAD)));
@@ -396,6 +396,7 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
     const lifelineSW = ld.sw ?? 1.5;
     const lifelineCapAttr = ld.cap ? ` stroke-linecap="${ld.cap}"` : "";
     const th = THEMES[o.theme] ?? THEMES.light;
+    const pal = o.theme === "monokai" ? PAL_MONOKAI : PAL;
     // long-dash style for dashed (response) arrows
     const DASHED_STYLE = ` stroke-dasharray="3 4" stroke-width="1.5"`;
     const parts: string[] = [];
@@ -413,13 +414,15 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
     parts.push(`<text id="diagram-title" x="${LP}" y="${titleY - 10}" dominant-baseline="middle" font-family="${f}" font-size="30" font-weight="800" fill="${titleColor}" style="cursor:pointer">${esc(diagramTitle)}</text>`);
     parts.push(`<text x="${LP}" y="${titleY + 20}" dominant-baseline="middle" font-family="${f}" font-size="11" fill="${subDate}"><tspan font-weight="800" fill="${subBH}">BH</tspan><tspan font-weight="300" fill="${subPipe}"> | </tspan><tspan font-weight="400">${dateStr} · ${timeStr}</tspan></text>`);
     ps.forEach((p, i) => {
-        const c = o.coloredLines ? p.color + "60" : "#d1d5db";
+        const col = pal[i % pal.length];
+        const c = o.coloredLines ? col + "60" : "#d1d5db";
         parts.push(`<line x1="${cx(i)}" y1="${lt}" x2="${cx(i)}" y2="${lb}" stroke="${c}" stroke-width="${lifelineSW}" stroke-dasharray="${ld.da}"${lifelineCapAttr}/>`);
     });
     const renderBox = (p: Participant, i: number, y: number) => {
         const bw = pBW[i];
         const x = cx(i) - bw / 2;
-        parts.push(`<rect x="${x}" y="${y}" width="${bw}" height="${BH}" rx="${BR}" fill="${p.color}" stroke="${th.boxStroke}" stroke-width="${th.boxStrokeW}"/>`);
+        const col = pal[i % pal.length];
+        parts.push(`<rect x="${x}" y="${y}" width="${bw}" height="${BH}" rx="${BR}" fill="${col}" stroke="${th.boxStroke}" stroke-width="${th.boxStrokeW}"/>`);
         if (o.boxOverlay !== "none") {
             const clipId = `bcp${i}_${Math.round(y)}`;
             defs.push(`<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${bw}" height="${BH}" rx="${BR}"/></clipPath>`);
@@ -456,9 +459,6 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
         } else {
             parts.push(`<text x="${cx(i)}" y="${y+BH/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="700" fill="${th.labelFill}">${esc(p.label)}</text>`);
         }
-        if (o.showBigNumbers) {
-            parts.push(`<text x="${cx(i)}" y="${TOP_PAD + TITLE_H + 50 + BIG_NUM_H / 2}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="80" font-weight="900" fill="${o.theme === "light" ? "#000000" : "#ffffff"}" opacity="0.75">${i + 1}</text>`);
-        }
     };
     ps.forEach((p, i) => renderBox(p, i, TOP_PAD + TITLE_H + TP));
     ms.forEach(msg => {
@@ -466,8 +466,9 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
         const y = msgY(msg.step);
         const fx = cx(fi), tx = cx(ti);
         const fp = ps[fi];
-        const lc = o.coloredLines ? fp.color : "#374151";
-        const tc = o.coloredText ? fp.color : th.plainTextFill;
+        const fpColor = pal[fi % pal.length];
+        const lc = o.coloredLines ? fpColor : "#374151";
+        const tc = o.coloredText ? fpColor : th.plainTextFill;
         const pillTextFill = o.theme === "light" ? "#000000" : "#ffffff";
         if (fi === ti) {
             const lowHeight = MG >= 30 && MG <= 70;
@@ -480,10 +481,10 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
                     const isMonokai = o.theme === "monokai";
                     if (isMonokai) {
                         parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${th.bg}"/>`);
-                        parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fp.color}" fill-opacity="0.15" stroke="${fp.color}" stroke-width="1.5"/>`);
+                        parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fpColor}" fill-opacity="0.15" stroke="${fpColor}" stroke-width="1.5"/>`);
                     } else {
                         parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${th.bg}"/>`);
-                        parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fp.color}" fill-opacity="0.5"/>`);
+                        parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fpColor}" fill-opacity="0.5"/>`);
                     }
                     parts.push(`<text x="${pillX + pillW / 2}" y="${pillY + pillH / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="600" fill="${pillTextFill}">${esc(msg.text)}</text>`);
                 } else {
@@ -501,10 +502,10 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
                 const isMonokai = o.theme === "monokai";
                 if (isMonokai) {
                     parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${th.bg}"/>`);
-                    parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fp.color}" fill-opacity="0.15" stroke="${fp.color}" stroke-width="1.5"/>`);
+                    parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fpColor}" fill-opacity="0.15" stroke="${fpColor}" stroke-width="1.5"/>`);
                 } else {
                     parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${th.bg}"/>`);
-                    parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fp.color}" fill-opacity="0.5"/>`);
+                    parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fpColor}" fill-opacity="0.5"/>`);
                 }
                 parts.push(`<text x="${pillX + pillW / 2}" y="${pillY + pillH / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="600" fill="${pillTextFill}">${esc(msg.text)}</text>`);
             } else {
@@ -531,10 +532,10 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
                 const isMonokai = o.theme === "monokai";
                 if (isMonokai) {
                     parts.push(`<rect x="${mid - pillW / 2}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${th.bg}"/>`);
-                    parts.push(`<rect x="${mid - pillW / 2}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fp.color}" fill-opacity="0.15" stroke="${fp.color}" stroke-width="1.5"/>`);
+                    parts.push(`<rect x="${mid - pillW / 2}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fpColor}" fill-opacity="0.15" stroke="${fpColor}" stroke-width="1.5"/>`);
                 } else {
                     parts.push(`<rect x="${mid - pillW / 2}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${th.bg}"/>`);
-                    parts.push(`<rect x="${mid - pillW / 2}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fp.color}" fill-opacity="0.5"/>`);
+                    parts.push(`<rect x="${mid - pillW / 2}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fpColor}" fill-opacity="0.5"/>`);
                 }
                 parts.push(`<text x="${mid}" y="${pillY + pillH / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="600" fill="${pillTextFill}">${esc(msg.text)}</text>`);
             } else {
@@ -542,7 +543,7 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
             }
         }
         if (o.coloredNumbers) {
-            parts.push(`<circle cx="${fx}" cy="${y}" r="10" fill="${fp.color}" stroke="${fp.color}" stroke-width="2"/>`);
+            parts.push(`<circle cx="${fx}" cy="${y}" r="10" fill="${fpColor}" stroke="${fpColor}" stroke-width="2"/>`);
             parts.push(`<text x="${fx}" y="${y+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="11" font-weight="700" fill="${th.labelFill}">${msg.displayStep ?? msg.step}</text>`);
         }
     });
@@ -591,14 +592,12 @@ function SliderRow({ label, value, min, max, unit = "", fontSize = 12, ut, onCha
     label: string; value: number; min: number; max: number; unit?: string; fontSize?: number; ut: UiTheme; onChange: (v: number) => void;
 }) {
     return (
-        <div>
-            <div className="flex justify-between mb-1">
-                <span style={{ fontSize, color: ut.bodyText, fontWeight: 400 }}>{label}</span>
-                <span style={{ fontSize, color: ut.sectionLabel, fontWeight: 500 }}>{value}{unit}</span>
-            </div>
+        <div className="flex items-center gap-2">
+            <span style={{ fontSize, color: ut.bodyText, fontWeight: 400, whiteSpace: "nowrap", width: 44, flexShrink: 0 }}>{label}</span>
             <input type="range" min={min} max={max} value={value}
                 onChange={e => onChange(parseInt(e.target.value))}
-                className="w-full" />
+                className="flex-1 min-w-0" />
+            <span style={{ fontSize, color: ut.sectionLabel, fontWeight: 500, whiteSpace: "nowrap", width: 28, textAlign: "right", flexShrink: 0 }}>{value}{unit}</span>
         </div>
     );
 }
@@ -644,13 +643,13 @@ function SettingsContent({
     const ut = UI_THEMES[opts.theme] ?? UI_THEMES.light;
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
             {/* Tabs */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, background: ut.tabBarBg, borderRadius: 10, padding: 3 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 3, background: ut.tabBarBg, borderRadius: 8, padding: 2 }}>
                 {(["general", "components", "share"] as const).map(t => (
                     <button key={t} onClick={() => setTab(t)} style={{
-                        padding: "7px 4px", borderRadius: 8, fontSize: fs(11), fontWeight: 700,
+                        padding: "5px 4px", borderRadius: 6, fontSize: fs(10), fontWeight: 700,
                         textTransform: "capitalize", letterSpacing: "0.02em",
                         background: tab === t ? ut.activeTab : "transparent",
                         color: tab === t ? ut.activeTabText : ut.inactiveTabText,
@@ -662,12 +661,12 @@ function SettingsContent({
             {tab === "general" && <>
                 {/* Theme */}
                 <div>
-                    <div style={{ fontSize: fs(10), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Theme</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-                        {(["light", "dark", "monokai"] as const).map(t => (
+                    <div style={{ fontSize: fs(9), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Theme</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+                        {(["dark", "monokai"] as const).map(t => (
                             <button key={t} onClick={() => upd({ theme: t })}
                                 style={{
-                                    padding: mobile ? "10px 4px" : "8px 6px", borderRadius: 10, fontSize: fs(11), fontWeight: 700,
+                                    padding: mobile ? "8px 4px" : "6px 4px", borderRadius: 8, fontSize: fs(10), fontWeight: 700,
                                     textTransform: "capitalize", letterSpacing: "0.02em",
                                     border: opts.theme === t ? `2px solid ${ut.accent}` : `2px solid ${ut.panelBorder}`,
                                     background: opts.theme === t ? `${ut.accent}14` : ut.overlayBtnBg,
@@ -682,9 +681,61 @@ function SettingsContent({
 
                 {isSequence && <>
                     <div style={{ height: 1, background: ut.divider }} />
+
+                    {/* Style toggles */}
                     <div>
-                        <div style={{ fontSize: fs(10), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Layout</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ fontSize: fs(9), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 7 }}>Style</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: mobile ? 10 : 7 }}>
+                            {([ ["coloredLines","Line Colors"], ["coloredNumbers","Numbers"], ["coloredText","Text Pill"] ] as const).map(([k, label]) => (
+                                <div key={k} className="flex items-center justify-between cursor-pointer select-none"
+                                    onClick={() => upd({ [k]: !opts[k] } as Partial<Opts>)}>
+                                    <span style={{ fontSize: fs(11), color: ut.bodyText, fontWeight: 400 }}>{label}</span>
+                                    <div style={{ position: "relative", width: 34, height: 20, borderRadius: 10, flexShrink: 0, background: opts[k] ? ut.toggleOn : ut.tabBarBg, transition: "background 0.2s", cursor: "pointer" }}>
+                                        <div style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: 8, background: "white", left: opts[k] ? 16 : 2, transition: "left 0.2s ease", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }} />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div style={{ height: 1, background: ut.divider }} />
+
+                    {/* Line type */}
+                    <div>
+                        <div style={{ fontSize: fs(9), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Line</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+                            {([
+                                ["solid", "Solid",      "—————"],
+                                ["long",  "Long dash",  "– – –"],
+                                ["small", "Short dash", "- - -"],
+                                ["dot",   "Dot",        "· · ·"],
+                            ] as const).map(([v, label, preview]) => {
+                                const active = opts.lifelineDash === v;
+                                return (
+                                    <button key={v} onClick={() => upd({ lifelineDash: v })}
+                                        style={{
+                                            padding: mobile ? "8px 6px" : "6px 6px", borderRadius: 8,
+                                            fontSize: fs(10), fontWeight: 700,
+                                            border: active ? `2px solid ${ut.accent}` : "2px solid transparent",
+                                            background: ut.overlayBtnBg,
+                                            color: active ? ut.accent : ut.inactiveTabText,
+                                            cursor: "pointer", transition: "border 0.15s, color 0.15s",
+                                            display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                                        }}
+                                    >
+                                        <span style={{ fontSize: fs(11), letterSpacing: v === "solid" ? "0" : "2px" }}>{preview}</span>
+                                        <span style={{ fontSize: fs(8), opacity: 0.7, fontWeight: 500 }}>{label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div style={{ height: 1, background: ut.divider }} />
+
+                    <div>
+                        <div style={{ fontSize: fs(9), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 7 }}>Layout</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                             <SliderRow label="Height" value={layout.stepHeight} min={30} max={80} fontSize={fs(12)} ut={ut} onChange={v => updL({ stepHeight: v })} />
                             <SliderRow label="Width" value={layout.boxWidth} min={80} max={400} fontSize={fs(12)} ut={ut} onChange={v => updL({ boxWidth: v })} />
                             <SliderRow label="Gap" value={layout.spacing} min={120} max={450} fontSize={fs(12)} ut={ut} onChange={v => updL({ spacing: v })} />
@@ -715,39 +766,39 @@ function SettingsContent({
                 <div style={{ height: 1, background: ut.divider }} />
 
                 <div>
-                    <div style={{ fontSize: fs(10), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 9 }}>Download</div>
+                    <div style={{ fontSize: fs(9), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Download</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
                         {/* Row 1 */}
                         <button onClick={exportPng}
                             className="rounded-xl font-semibold transition-all hover:brightness-110 active:scale-95"
-                            style={{ background: "#FF6188", color: "#221F22", cursor: "pointer", padding: mobile ? "12px 0" : "10px 0", fontSize: fs(12) }}>
+                            style={{ background: "#FF6188", color: "#221F22", cursor: "pointer", padding: mobile ? "9px 0" : "7px 0", fontSize: fs(11) }}>
                             PNG
                         </button>
                         <button onClick={exportCode}
                             className="rounded-xl font-semibold transition-all hover:brightness-110 active:scale-95"
-                            style={{ background: "#FC9867", color: "#221F22", cursor: "pointer", padding: mobile ? "12px 0" : "10px 0", fontSize: fs(12) }}>
+                            style={{ background: "#FC9867", color: "#221F22", cursor: "pointer", padding: mobile ? "9px 0" : "7px 0", fontSize: fs(11) }}>
                             Code
                         </button>
                         {/* Row 2 */}
                         <button onClick={copyLink}
                             className="rounded-xl font-semibold transition-all hover:brightness-110 active:scale-95"
-                            style={{ background: copiedLink ? "#A9DC76" : "#FFD866", color: "#221F22", cursor: "pointer", padding: mobile ? "12px 0" : "10px 0", fontSize: fs(12) }}>
+                            style={{ background: copiedLink ? "#A9DC76" : "#FFD866", color: "#221F22", cursor: "pointer", padding: mobile ? "9px 0" : "7px 0", fontSize: fs(11) }}>
                             {copiedLink ? "Copied!" : "Link"}
                         </button>
                         <button onClick={exportJson}
                             className="rounded-xl font-semibold transition-all hover:brightness-110 active:scale-95"
-                            style={{ background: "#A9DC76", color: "#221F22", cursor: "pointer", padding: mobile ? "12px 0" : "10px 0", fontSize: fs(12) }}>
+                            style={{ background: "#A9DC76", color: "#221F22", cursor: "pointer", padding: mobile ? "9px 0" : "7px 0", fontSize: fs(11) }}>
                             JSON
                         </button>
                         {/* Row 3 */}
                         <button onClick={share}
                             className="rounded-xl font-semibold transition-all hover:brightness-110 active:scale-95"
-                            style={{ background: copiedShare ? "#A9DC76" : "#78DCE8", color: "#221F22", cursor: "pointer", padding: mobile ? "12px 0" : "10px 0", fontSize: fs(12) }}>
+                            style={{ background: copiedShare ? "#A9DC76" : "#78DCE8", color: "#221F22", cursor: "pointer", padding: mobile ? "9px 0" : "7px 0", fontSize: fs(11) }}>
                             {copiedShare ? "Shared!" : "Share"}
                         </button>
                         <button onClick={copyCode}
                             className="rounded-xl font-semibold transition-all hover:brightness-110 active:scale-95"
-                            style={{ background: copied ? "#A9DC76" : "#AB9DF2", color: "#221F22", cursor: "pointer", padding: mobile ? "12px 0" : "10px 0", fontSize: fs(12) }}>
+                            style={{ background: copied ? "#A9DC76" : "#AB9DF2", color: "#221F22", cursor: "pointer", padding: mobile ? "9px 0" : "7px 0", fontSize: fs(11) }}>
                             {copied ? "Copied!" : "Copy"}
                         </button>
                     </div>
@@ -757,8 +808,8 @@ function SettingsContent({
             {tab === "components" && isSequence && <>
                 {/* Box Overlay */}
                 <div>
-                    <div style={{ fontSize: fs(10), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Overlay</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    <div style={{ fontSize: fs(9), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Overlay</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
                         {([
                             ["none",  "None",   "—"],
                             ["gloss", "Gloss",  "✦"],
@@ -768,12 +819,12 @@ function SettingsContent({
                         ] as const).map(([v, label, icon]) => (
                             <button key={v} onClick={() => upd({ boxOverlay: v })}
                                 style={{
-                                    padding: mobile ? "10px 4px" : "8px 4px", borderRadius: 10,
-                                    fontSize: fs(11), fontWeight: 700, letterSpacing: "0.02em",
+                                    padding: mobile ? "8px 4px" : "6px 4px", borderRadius: 8,
+                                    fontSize: fs(10), fontWeight: 700, letterSpacing: "0.02em",
                                     border: opts.boxOverlay === v ? `2px solid ${ut.accent}` : "2px solid transparent",
                                     background: ut.overlayBtnBg, color: opts.boxOverlay === v ? ut.accent : ut.inactiveTabText,
                                     cursor: "pointer", transition: "border 0.15s, color 0.15s",
-                                    display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                                    display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
                                 }}
                             ><span>{icon}</span><span>{label}</span></button>
                         ))}
@@ -784,15 +835,15 @@ function SettingsContent({
                 <div style={{ height: 1, background: ut.divider }} />
                 <div className="flex items-center justify-between cursor-pointer select-none"
                     onClick={() => upd({ showIcons: !opts.showIcons })}>
-                    <span style={{ fontSize: fs(13), color: ut.bodyText, fontWeight: 400 }}>Icons</span>
+                    <span style={{ fontSize: fs(11), color: ut.bodyText, fontWeight: 400 }}>Icons</span>
                     <div style={{
-                        position: "relative", width: 42, height: 24, borderRadius: 12, flexShrink: 0,
+                        position: "relative", width: 34, height: 20, borderRadius: 10, flexShrink: 0,
                         background: opts.showIcons ? ut.toggleOn : ut.tabBarBg,
                         transition: "background 0.2s", cursor: "pointer",
                     }}>
                         <div style={{
-                            position: "absolute", top: 2, width: 20, height: 20, borderRadius: 10,
-                            background: "white", left: opts.showIcons ? 20 : 2,
+                            position: "absolute", top: 2, width: 16, height: 16, borderRadius: 8,
+                            background: "white", left: opts.showIcons ? 16 : 2,
                             transition: "left 0.2s ease",
                             boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
                         }} />
@@ -803,8 +854,8 @@ function SettingsContent({
                 {opts.showIcons && participants.length > 0 && <>
                     <div style={{ height: 1, background: ut.divider }} />
                     <div>
-                        <div style={{ fontSize: fs(10), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>Icons</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ fontSize: fs(9), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Icons</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                             {participants.map(p => {
                                 const currentKey = ICON_NODES[opts.icons[p.id]] ? opts.icons[p.id] : guessIconKey(p.label);
                                 return (
@@ -1149,7 +1200,7 @@ export default function SequenceTool() {
         }
         const c = localStorage.getItem("nsd-code");
         if (c) setCode(c);
-        try { const o = localStorage.getItem("nsd-opts"); if (o) setOpts(prev => ({ ...prev, ...JSON.parse(o) })); } catch {}
+        try { const o = localStorage.getItem("nsd-opts"); if (o) { const parsed = JSON.parse(o); if (parsed.theme === "light") parsed.theme = "dark"; setOpts(prev => ({ ...prev, ...parsed })); } } catch {}
         try { const l = localStorage.getItem("nsd-layout"); if (l) setLayout(prev => ({ ...prev, ...JSON.parse(l) })); } catch {}
     }, []);
 
@@ -1196,7 +1247,24 @@ export default function SequenceTool() {
     }, [code, opts.theme, mounted, isSequence]);
 
     const diagram = useMemo(() => parse(code), [code]);
-    const svg = useMemo(() => buildSvg(diagram, opts, layout), [diagram, opts, layout]);
+
+    // ── Auto layout — compute from diagram content ────────────────────────
+    const computedLayout = useMemo((): Layout => {
+        if (!opts.autoLayout) return layout;
+        const FS = 13;
+        const HPAD = 24, ICON_W = opts.showIcons ? 26 : 0;
+        const boxWidth = Math.max(100, ...diagram.participants.map(p =>
+            Math.ceil(p.label.length * (FS * 0.65) + ICON_W + HPAD)
+        ));
+        const maxMsgLen = diagram.messages.reduce((m, msg) => Math.max(m, msg.text.length), 0);
+        const spacing = Math.round(Math.min(Math.max(boxWidth + 80, boxWidth + maxMsgLen * 5.5), 420));
+        const stepHeight = 42;
+        const vPad = 44;
+        const margin = Math.round(Math.max(80, spacing * 0.45));
+        return { textSize: FS, boxWidth, spacing, stepHeight, vPad, margin };
+    }, [opts.autoLayout, opts.showIcons, diagram, layout]);
+
+    const svg = useMemo(() => buildSvg(diagram, opts, computedLayout), [diagram, opts, computedLayout]);
 
     const activeSvg = isSequence ? svg : mermaidSvg;
 
@@ -1381,7 +1449,9 @@ export default function SequenceTool() {
         const pasted = e.clipboardData.getData("text");
         const parsed = parse(pasted);
         if (parsed.participants.length >= 2) setTimeout(fireConfetti, 150);
-    }, [fireConfetti]);
+        // Re-fit after paste so new diagram fills the canvas
+        setTimeout(fitZoom, 120);
+    }, [fireConfetti, fitZoom]);
 
     const zoomPct = Math.round(zoom * 100);
     const ut = UI_THEMES[opts.theme] ?? UI_THEMES.light;
@@ -1796,8 +1866,8 @@ export default function SequenceTool() {
                 {/* Desktop: Settings panel */}
                 {!isMobile && showSettings && (
                     <div className="shrink-0 flex flex-col" style={{ width: 268, background: ut.panelBg, borderLeft: `1px solid ${ut.panelBorder}` }}>
-                            <div className="flex-1 overflow-y-auto" style={{ padding: "20px 16px" }}>
-                            <SettingsContent opts={opts} layout={layout} copied={copied} copiedLink={copiedLink} copiedShare={copiedShare} participants={diagram.participants} isSequence={isSequence}
+                            <div className="flex-1 overflow-y-auto" style={{ padding: "12px 12px" }}>
+                            <SettingsContent opts={opts} layout={computedLayout} copied={copied} copiedLink={copiedLink} copiedShare={copiedShare} participants={diagram.participants} isSequence={isSequence}
                                 upd={upd} updL={updL} exportPng={exportPng} exportCode={exportCode} exportJson={exportJson} copyCode={copyCode} copyLink={copyLink} share={share} viewUrl={mounted ? buildViewUrl() : ""} />
                         </div>
                     </div>
