@@ -34,7 +34,7 @@ const DEFAULT_LAYOUT: Layout = { stepHeight: 42, boxWidth: 141, spacing: 250, te
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const PAL = ["#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#f43f5e","#84cc16","#0891b2"];
-const PAL_MONOKAI = ["#f92672","#ff6188","#ff6da2","#fc9867","#ffd866","#a9dc76","#23bbad","#25d9c8","#2abed9","#78dce8","#ab9df2"];
+const PAL_MONOKAI = ["#ab9df2","#78dce8","#a9dc76","#ffd866","#fc9867","#f92672","#ff6da2","#23bbad","#25d9c8","#c678dd"];
 
 // ── Icon system (Lucide-sourced SVG paths, white stroke) ──────────────────────
 type INode = [string, Record<string, string | number>];
