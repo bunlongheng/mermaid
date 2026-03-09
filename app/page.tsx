@@ -529,15 +529,20 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
             if (o.coloredText) {
                 const pillH = FS + 8, pillW = Math.max(40, msg.text.length * (FS * 0.62) + 12);
                 const pillY = y - pillH / 2;
+                // Clamp pill so it never overlaps the step circle at fx
+                const circleRoom = o.coloredNumbers ? 24 : 4;
+                const leftBound = Math.min(fx, tx) + circleRoom;
+                const pillX = Math.max(mid - pillW / 2, leftBound);
+                const pillCx = pillX + pillW / 2;
                 const isMonokai = o.theme === "monokai";
                 if (isMonokai) {
-                    parts.push(`<rect x="${mid - pillW / 2}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${th.bg}"/>`);
-                    parts.push(`<rect x="${mid - pillW / 2}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fpColor}" fill-opacity="0.15" stroke="${fpColor}" stroke-width="1.5"/>`);
+                    parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${th.bg}"/>`);
+                    parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fpColor}" fill-opacity="0.15" stroke="${fpColor}" stroke-width="1.5"/>`);
                 } else {
-                    parts.push(`<rect x="${mid - pillW / 2}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${th.bg}"/>`);
-                    parts.push(`<rect x="${mid - pillW / 2}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fpColor}" fill-opacity="0.5"/>`);
+                    parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${th.bg}"/>`);
+                    parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fpColor}" fill-opacity="0.5"/>`);
                 }
-                parts.push(`<text x="${mid}" y="${pillY + pillH / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="600" fill="${pillTextFill}">${esc(msg.text)}</text>`);
+                parts.push(`<text x="${pillCx}" y="${pillY + pillH / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="600" fill="${pillTextFill}">${esc(msg.text)}</text>`);
             } else {
                 parts.push(`<text x="${mid}" y="${y-8}" text-anchor="middle" font-family="${f}" font-size="${FS}" fill="${tc}">${esc(msg.text)}</text>`);
             }
@@ -1275,9 +1280,10 @@ export default function SequenceTool() {
         // Step height: compress for dense diagrams
         const stepHeight = rows > 40 ? 32 : rows > 20 ? 36 : rows > 10 ? 40 : 44;
 
-        // Spacing: based on longest message label + box width, capped reasonably
+        // Spacing: box width + enough room for the longest adjacent message pill + step circle
         const maxMsgLen = diagram.messages.reduce((m, msg) => Math.max(m, msg.text.length), 0);
-        const spacing = Math.round(Math.min(Math.max(boxWidth + 60, boxWidth + maxMsgLen * (FS * 0.52)), 480));
+        const pillEstimate = maxMsgLen * (FS * 0.65) + 48; // 0.65 char width + circle room
+        const spacing = Math.round(Math.max(boxWidth + 80, boxWidth + pillEstimate));
 
         // vPad: tighter for dense diagrams
         const vPad = rows > 20 ? 30 : 44;
