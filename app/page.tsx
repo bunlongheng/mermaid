@@ -1054,7 +1054,6 @@ export default function SequenceTool() {
     // Keep refs in sync for use in event handlers
     useEffect(() => { zoomRef.current = zoom; }, [zoom]);
     useEffect(() => { panRef.current = { x: panX, y: panY }; }, [panX, panY]);
-    useEffect(() => { svgDimsRef.current = svgDims; }, [svgDims]);
 
     // ── Resize drag (desktop) ───────────────────────────────────────────────
     useEffect(() => {
@@ -1314,6 +1313,8 @@ export default function SequenceTool() {
         const vb = activeSvg.match(/viewBox="[^"]*0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/);
         return vb ? { w: parseFloat(vb[1]), h: parseFloat(vb[2]) } : null;
     }, [activeSvg]);
+    // Sync ref during render — avoids SWC/Linux minifier TDZ bug triggered by useEffect([svgDims])
+    svgDimsRef.current = svgDims;
 
     const fitZoom = useCallback(() => {
         if (!canvasRef.current || !svgDims) return;
