@@ -1324,9 +1324,12 @@ export default function SequenceTool() {
         }
 
         // URL ?data= takes priority over localStorage
-        const params = new URLSearchParams(window.location.search);
+        // NOTE: URLSearchParams converts + → space (application/x-www-form-urlencoded),
+        // which corrupts LZString payloads that contain literal +. Parse raw query instead.
+        const rawSearch = window.location.search;
+        const params = new URLSearchParams(rawSearch);
         if (params.get("view") === "1") setViewMode(true);
-        const urlData = params.get("data");
+        const urlData = rawSearch.match(/[?&]data=([^&]+)/)?.[1] ?? null;
         if (urlData) {
             const decoded = decodeData(urlData);
             if (decoded) { setCode(decoded); return; }
