@@ -1894,7 +1894,7 @@ export default function SequenceTool() {
                         <SlidersHorizontal size={16} strokeWidth={2} />
                     </IconBtn>
                     <IconBtn active={false} accent={ut.accent} inactiveBg={opts.theme === "light" ? "rgba(255,255,255,0.12)" : ut.activeTab} color={ut.headerText} onClick={enterPresenter} title="Present">
-                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="10"/><polygon points="8,6 15,10 8,14" fill="#221F22"/></svg>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 15,8 3,15"/></svg>
                     </IconBtn>
                 </div>
             </header>
