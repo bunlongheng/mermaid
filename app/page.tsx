@@ -1337,7 +1337,7 @@ export default function SequenceTool() {
     const panelMounted = useRef(false);
     useEffect(() => {
         if (!panelMounted.current) { panelMounted.current = true; return; }
-        const id = requestAnimationFrame(() => fitZoom());
+        const id = requestAnimationFrame(() => { if (fitActiveRef.current) fitZoom(); });
         return () => cancelAnimationFrame(id);
     }, [showSettings, showCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1715,22 +1715,7 @@ export default function SequenceTool() {
                             e.preventDefault();
                         }}
                         onDoubleClick={e => {
-                            if ((e.target as HTMLElement).closest("button,#diagram-title")) return;
-                            if (Math.abs(zoomRef.current - 1.0) > 0.05) {
-                                // zoom to 100% centered on cursor
-                                const rect = canvasRef.current!.getBoundingClientRect();
-                                const dx = e.clientX - (rect.left + rect.width / 2);
-                                const dy = e.clientY - (rect.top + rect.height / 2);
-                                const ratio = 1.0 / zoomRef.current;
-                                const newPanX = dx * (1 - ratio) + panRef.current.x * ratio;
-                                const newPanY = dy * (1 - ratio) + panRef.current.y * ratio;
-                                zoomRef.current = 1.0;
-                                panRef.current = { x: newPanX, y: newPanY };
-                                applyTransform(panRef.current, 1.0);
-                                setZoom(1.0); setPanX(newPanX); setPanY(newPanY); setFitActive(false);
-                            } else {
-                                fitZoom();
-                            }
+                            if ((e.target as HTMLElement).closest("#diagram-title")) return;
                         }}
                     >
                         {mounted && activeSvg ? (
