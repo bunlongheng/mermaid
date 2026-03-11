@@ -990,6 +990,7 @@ export default function SequenceTool() {
     const [copiedShare, setCopiedShare] = useState(false);
     const [hasFit, setHasFit] = useState(false);
     const [fitActive, setFitActive] = useState(true);
+    const fitActiveRef = useRef(true);
     const [opts, setOpts] = useState<Opts>(DEFAULT_OPTS);
     const [layout, setLayout] = useState<Layout>(DEFAULT_LAYOUT);
     const [zoom, setZoom] = useState(1.0);
@@ -1054,6 +1055,7 @@ export default function SequenceTool() {
     // Keep refs in sync for use in event handlers
     useEffect(() => { zoomRef.current = zoom; }, [zoom]);
     useEffect(() => { panRef.current = { x: panX, y: panY }; }, [panX, panY]);
+    fitActiveRef.current = fitActive;
 
     // ── Resize drag (desktop) ───────────────────────────────────────────────
     useEffect(() => {
@@ -1351,7 +1353,7 @@ export default function SequenceTool() {
     useEffect(() => {
         if (!mounted) return;
         let tid: ReturnType<typeof setTimeout>;
-        const onResize = () => { clearTimeout(tid); tid = setTimeout(() => fitZoom(), 120); };
+        const onResize = () => { clearTimeout(tid); tid = setTimeout(() => { if (fitActiveRef.current) fitZoom(); }, 120); };
         window.addEventListener("resize", onResize);
         screen.orientation?.addEventListener("change", onResize);
         return () => {
