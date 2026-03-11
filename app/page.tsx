@@ -1122,13 +1122,6 @@ export default function SequenceTool() {
     const spaceHeld = useRef(false);
     const viewWheelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // ── Title inline edit ─────────────────────────────────────────────────
-    // Hide the SVG title element while the input is open to prevent overlap
-    useEffect(() => {
-        const el = svgWrapRef.current?.querySelector<SVGTextElement>("#diagram-title");
-        if (!el) return;
-        el.style.visibility = titleEdit ? "hidden" : "";
-    }, [titleEdit]);
 
     const commitTitle = useCallback((val: string) => {
         setTitleEdit(null);
@@ -1167,7 +1160,12 @@ export default function SequenceTool() {
     // Re-apply transform after every render — prevents React from overwriting
     // the direct DOM transform set by applyTransform during gestures.
     // useLayoutEffect runs synchronously before paint so there is zero flicker.
-    useLayoutEffect(() => { if (svgWrapRef.current) applyTransform(panRef.current, zoomRef.current); });
+    useLayoutEffect(() => {
+        if (!svgWrapRef.current) return;
+        applyTransform(panRef.current, zoomRef.current);
+        const titleEl = svgWrapRef.current.querySelector<SVGTextElement>("#diagram-title");
+        if (titleEl) titleEl.style.visibility = titleEdit ? "hidden" : "";
+    });
 
     // ── Resize drag (desktop) ───────────────────────────────────────────────
     useEffect(() => {
