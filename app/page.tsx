@@ -1315,6 +1315,13 @@ export default function SequenceTool() {
     }, [activeSvg]);
     // Sync ref during render — avoids SWC/Linux minifier TDZ bug triggered by useEffect([svgDims])
     svgDimsRef.current = svgDims;
+    // Re-apply SVG dimensions after content changes (code edit, title change, theme change)
+    // so the diagram stays at the current zoom instead of snapping back to 100%.
+    // Safe to add: only fires on activeSvg changes (not during smooth gestures).
+    useEffect(() => {
+        if (!activeSvg) return;
+        applyTransform(panRef.current, zoomRef.current);
+    }, [activeSvg, applyTransform]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fitZoom = useCallback(() => {
         if (!canvasRef.current || !svgDims) return;
@@ -1725,6 +1732,7 @@ export default function SequenceTool() {
                                 const newPanY = dy * (1 - ratio) + panRef.current.y * ratio;
                                 zoomRef.current = 1.0;
                                 panRef.current = { x: newPanX, y: newPanY };
+                                applyTransform(panRef.current, 1.0);
                                 setZoom(1.0); setPanX(newPanX); setPanY(newPanY); setFitActive(false);
                             } else {
                                 fitZoom();
