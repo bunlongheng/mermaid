@@ -1702,7 +1702,7 @@ export default function SequenceTool() {
                     if (spotlightActiveRef.current && spotlightRef.current) {
                         const x = e.clientX - rect.left;
                         const y = e.clientY - rect.top;
-                        spotlightRef.current.style.background = `radial-gradient(circle 200px at ${x}px ${y}px, transparent 0%, transparent 160px, rgba(0,0,0,0.65) 220px)`;
+                        spotlightRef.current.style.background = `radial-gradient(circle 180px at ${x}px ${y}px, transparent 0%, transparent 179px, rgba(0,0,0,0.65) 180px)`;
                     }
                 }}
                 onMouseLeave={() => {
@@ -1719,7 +1719,7 @@ export default function SequenceTool() {
                         const rect = canvasRef.current!.getBoundingClientRect();
                         const x = e.clientX - rect.left;
                         const y = e.clientY - rect.top;
-                        spotlightRef.current.style.background = `radial-gradient(circle 200px at ${x}px ${y}px, transparent 0%, transparent 160px, rgba(0,0,0,0.65) 220px)`;
+                        spotlightRef.current.style.background = `radial-gradient(circle 180px at ${x}px ${y}px, transparent 0%, transparent 179px, rgba(0,0,0,0.65) 180px)`;
                         spotlightRef.current.style.opacity = "1";
                     }
                 }}
@@ -1780,7 +1780,7 @@ export default function SequenceTool() {
                 <div ref={spotlightRef} style={{
                     position: "absolute", inset: 0, zIndex: 16, pointerEvents: "none",
                     opacity: 0, transition: "opacity 0.15s ease",
-                    background: "radial-gradient(circle 200px at 50% 50%, transparent 0%, transparent 160px, rgba(0,0,0,0.65) 220px)",
+                    background: "radial-gradient(circle 180px at 50% 50%, transparent 0%, transparent 179px, rgba(0,0,0,0.65) 180px)",
                 }} />
 
                 {/* Esc-pending toast */}
