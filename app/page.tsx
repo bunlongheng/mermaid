@@ -153,7 +153,7 @@ function detectDiagramType(code: string): string {
 const NODE_SELECTOR_MAP: Record<string, string> = {
     flowchart: ".node",
     class:     ".classGroup",
-    er:        ".node",
+    er:        "", // handled separately below
     state:     ".node",
     gantt:     ".task",
     pie:       ".slice",
@@ -204,12 +204,14 @@ function applyColorfulMermaidStyle(svgString: string, opts: Opts, diagramType: s
             background: transparent !important;
             font-family: ${f} !important;
         }
+        .er.entityLabel, .entityLabel { dominant-baseline: middle; }
+        .er.attributeType, .er.attributeName, .er.attributeKeyType { dominant-baseline: middle; }
     `;
     svgEl.insertBefore(styleEl, svgEl.firstChild);
 
     // ── Color each node (inline style beats any CSS rule) ──────────────────
     const nodeSelector = NODE_SELECTOR_MAP[diagramType] ?? ".node";
-    const nodes = Array.from(doc.querySelectorAll(nodeSelector));
+    const nodes = nodeSelector ? Array.from(doc.querySelectorAll(nodeSelector)) : [];
     nodes.forEach((node, i) => {
         const color = PAL[i % PAL.length];
 
@@ -238,6 +240,83 @@ function applyColorfulMermaidStyle(svgString: string, opts: Opts, diagramType: s
             t.style.fontFamily = f;
         });
     });
+
+    // ── ER diagram ─────────────────────────────────────────────────────────
+    if (diagramType === "er") {
+        const pal = opts.theme === "monokai" ? PAL_MONOKAI : PAL;
+        const isDark = opts.theme !== "light";
+        const rowBg = isDark ? (opts.theme === "monokai" ? "#3a383d" : "#1e2030") : "#f8fafc";
+        const rowBgAlt = isDark ? (opts.theme === "monokai" ? "#332f38" : "#181926") : "#f1f5f9";
+        const rowBorder = isDark ? "rgba(255,255,255,0.07)" : "#e2e8f0";
+        const textColor = isDark ? "#e2e8f0" : "#1e293b";
+        const subtleText = isDark ? "#94a3b8" : "#64748b";
+
+        // Color each entity header a different palette color
+        const entityGroups = Array.from(doc.querySelectorAll("g.er.entityGroup, g[id^='entity-']"));
+        const entityColorMap = new Map<string, string>();
+        entityGroups.forEach((g, i) => {
+            const color = pal[i % pal.length];
+            entityColorMap.set(g.id, color);
+            g.querySelectorAll("rect.er.entityBox, .entityBox").forEach(el => {
+                const r = el as SVGElement;
+                r.style.fill = color; r.style.stroke = "none";
+                r.setAttribute("rx", "6"); r.setAttribute("ry", "6");
+            });
+            g.querySelectorAll("text.er.entityLabel, .entityLabel").forEach(el => {
+                const t = el as SVGElement;
+                t.style.fill = "#221F22"; t.style.fontWeight = "800";
+                t.style.fontFamily = f; t.style.fontSize = "13px";
+            });
+        });
+
+        // Style attribute rows
+        Array.from(doc.querySelectorAll("g.er.attributeGroup, g[id^='attr-']")).forEach((g, i) => {
+            g.querySelectorAll("rect.er.attributeBoxOdd").forEach(el => {
+                const r = el as SVGElement;
+                r.style.fill = rowBg; r.style.stroke = rowBorder;
+            });
+            g.querySelectorAll("rect.er.attributeBoxEven").forEach(el => {
+                const r = el as SVGElement;
+                r.style.fill = rowBgAlt; r.style.stroke = rowBorder;
+            });
+            g.querySelectorAll("text.er.attributeType, .attributeType").forEach(el => {
+                const t = el as SVGElement;
+                t.style.fill = subtleText; t.style.fontFamily = f; t.style.fontSize = "11px";
+            });
+            g.querySelectorAll("text.er.attributeName, .attributeName").forEach(el => {
+                const t = el as SVGElement;
+                t.style.fill = textColor; t.style.fontFamily = f; t.style.fontWeight = "500";
+            });
+            // PK → gold, FK → teal
+            g.querySelectorAll("text.er.attributeKeyType, .attributeKeyType").forEach(el => {
+                const t = el as SVGElement;
+                const val = t.textContent?.trim().toUpperCase() ?? "";
+                t.style.fill = val === "PK" ? "#FFD866" : val === "FK" ? "#78DCE8" : subtleText;
+                t.style.fontWeight = "700"; t.style.fontFamily = f; t.style.fontSize = "10px";
+            });
+        });
+
+        // Style relationship lines & labels
+        doc.querySelectorAll("path.er.relationshipLine, line.er.relationshipLine").forEach(el => {
+            const r = el as SVGElement;
+            r.style.stroke = isDark ? "#6b7280" : "#94a3b8";
+            r.style.strokeWidth = "1.5"; r.style.fill = "none";
+        });
+        doc.querySelectorAll("text.er.relationshipLabel, .relationshipLabel").forEach(el => {
+            const t = el as SVGElement;
+            t.style.fill = isDark ? "#a9dc76" : "#16a34a";
+            t.style.fontWeight = "600"; t.style.fontFamily = f; t.style.fontSize = "11px";
+        });
+        doc.querySelectorAll("rect.er.relationshipLabelBox").forEach(el => {
+            (el as SVGElement).style.fill = "transparent";
+            (el as SVGElement).style.stroke = "none";
+        });
+        // ER marker/arrowheads
+        doc.querySelectorAll("marker path, marker line, marker circle").forEach(el => {
+            (el as SVGElement).style.stroke = isDark ? "#6b7280" : "#94a3b8";
+            (el as SVGElement).style.fill = "none";
+        });
+    }
 
     // ── Pie slices ─────────────────────────────────────────────────────────
     if (diagramType === "pie") {
