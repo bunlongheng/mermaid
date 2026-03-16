@@ -1397,7 +1397,13 @@ export default function SequenceTool() {
         if (!mounted || isSequence) { setMermaidSvg(""); setRenderError(null); return; }
         let cancelled = false;
         const currentType = detectDiagramType(code);
-        import("mermaid").then(({ default: mermaid }) => {
+        const extraImports = currentType === "architecture"
+            ? [import("mermaid/dist/diagrams/architecture/architectureDiagram.js").then(m => ({ diagram: m.diagram }))]
+            : [];
+        Promise.all([import("mermaid"), ...extraImports]).then(async ([{ default: mermaid }, archDiagram]) => {
+            if (archDiagram) {
+                try { mermaid.registerExternalDiagrams([archDiagram.diagram]); } catch {}
+            }
             mermaid.initialize({
                 startOnLoad: false,
                 theme: "base",
