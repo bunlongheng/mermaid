@@ -146,10 +146,14 @@ const MERMAID_TYPES: Record<string, string> = {
 };
 
 function stripFrontmatter(code: string): string {
-    const lines = code.trim().split("\n");
-    if (lines[0]?.trim() !== "---") return code;
+    let s = code.trim();
+    // Strip markdown code fences: ```mermaid ... ``` or ``` ... ```
+    const fenceMatch = s.match(/^```[a-z-]*\n([\s\S]*?)```\s*$/i);
+    if (fenceMatch) s = fenceMatch[1].trimStart();
+    const lines = s.split("\n");
+    if (lines[0]?.trim() !== "---") return s;
     const end = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
-    if (end === -1) return code;
+    if (end === -1) return s;
     return lines.slice(end + 1).join("\n").trimStart();
 }
 
@@ -2012,7 +2016,18 @@ export default function SequenceTool() {
                                     <span style={{ display: "block", fontWeight: 700, marginBottom: 6 }}>Parse Error</span>
                                     {renderError}
                                     <button
-                                        onClick={() => { navigator.clipboard.writeText(renderError ?? ""); }}
+                                        onClick={() => {
+                                            const txt = renderError ?? "";
+                                            if (navigator.clipboard) {
+                                                navigator.clipboard.writeText(txt).catch(() => {
+                                                    const ta = document.createElement("textarea");
+                                                    ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+                                                });
+                                            } else {
+                                                const ta = document.createElement("textarea");
+                                                ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+                                            }
+                                        }}
                                         title="Copy error"
                                         style={{ position: "absolute", top: 8, right: 8, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.35)", borderRadius: 5, color: "#f87171", cursor: "pointer", fontSize: 10, fontFamily: "monospace", padding: "2px 7px", lineHeight: 1.6 }}
                                     >copy</button>
