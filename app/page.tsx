@@ -203,9 +203,13 @@ function applyColorfulMermaidStyle(svgString: string, opts: Opts, diagramType: s
     const th = THEMES[opts.theme] ?? THEMES.light;
     const f = `'Inter', sans-serif`;
 
-    // ── Strip mermaid's injected <style> — it uses CSS rules that override
-    //    presentation attributes and would lock everything to primaryColor ──
-    doc.querySelectorAll("style").forEach(s => s.remove());
+    // These types rely on their mermaid CSS for structural shape rendering —
+    // stripping styles breaks them (e.g. gitGraph commits become black triangles).
+    // For these, keep original styles and just inject overrides after.
+    const CSS_KEEP = new Set(["git", "timeline", "kanban", "sankey", "packet", "radar", "treemap"]);
+    if (!CSS_KEEP.has(diagramType)) {
+        doc.querySelectorAll("style").forEach(s => s.remove());
+    }
 
     // ── Background ─────────────────────────────────────────────────────────
     const rootBg = svgEl.querySelector(":scope > rect");
