@@ -1490,7 +1490,11 @@ export default function SequenceTool() {
     const fitZoom = useCallback(() => {
         if (!canvasRef.current || !svgDims) return;
         const { clientWidth: cw, clientHeight: ch } = canvasRef.current;
-        const newZoom = parseFloat(Math.min((cw - 48) / svgDims.w, (ch - 48) / svgDims.h).toFixed(3));
+        const fitW = (cw - 48) / svgDims.w;
+        const fitH = (ch - 48) / svgDims.h;
+        // Wide diagrams (gitGraph, gantt, timeline): fit to height, pan horizontally
+        const wide = svgDims.w > svgDims.h * 2.5;
+        const newZoom = parseFloat((wide ? Math.min(fitH, 1.5) : Math.min(fitW, fitH)).toFixed(3));
         zoomRef.current = newZoom;
         panRef.current = { x: 0, y: 0 };
         applyTransform(panRef.current, zoomRef.current);
