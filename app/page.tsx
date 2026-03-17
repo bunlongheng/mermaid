@@ -1219,6 +1219,7 @@ export default function SequenceTool() {
 
     // ── Wheel: pan (no modifier) + zoom-to-cursor (ctrl/cmd) ─────────────
     const wheelEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const wheelRafId = useRef<number | null>(null);
     useEffect(() => {
         if (!mounted) return;
         const el = canvasRef.current;
@@ -1226,7 +1227,7 @@ export default function SequenceTool() {
         const onWheel = (e: WheelEvent) => {
             e.preventDefault();
             if (e.ctrlKey || e.metaKey) {
-                // Zoom toward cursor — direct DOM only, no setState during gesture
+                // Accumulate zoom toward cursor in refs — no DOM write yet
                 const rect = el.getBoundingClientRect();
                 const dx = e.clientX - (rect.left + rect.width / 2);
                 const dy = e.clientY - (rect.top + rect.height / 2);
@@ -1236,13 +1237,18 @@ export default function SequenceTool() {
                 const ratio = newZoom / oldZoom;
                 zoomRef.current = newZoom;
                 panRef.current = { x: dx * (1 - ratio) + panRef.current.x * ratio, y: dy * (1 - ratio) + panRef.current.y * ratio };
-                applyTransform(panRef.current, zoomRef.current);
             } else {
-                // Pan — direct DOM only
+                // Accumulate pan in refs — no DOM write yet
                 panRef.current = { x: panRef.current.x - e.deltaX, y: panRef.current.y - e.deltaY };
-                applyTransform(panRef.current, zoomRef.current);
             }
-            // Sync React state only after wheel stops — avoids re-renders during gesture
+            // Flush to DOM once per frame via rAF — batches all events between frames
+            if (!wheelRafId.current) {
+                wheelRafId.current = requestAnimationFrame(() => {
+                    applyTransform(panRef.current, zoomRef.current);
+                    wheelRafId.current = null;
+                });
+            }
+            // Sync React state only after wheel stops
             if (wheelEndTimer.current) clearTimeout(wheelEndTimer.current);
             wheelEndTimer.current = setTimeout(() => {
                 setZoom(zoomRef.current); setPanX(panRef.current.x); setPanY(panRef.current.y); setFitActive(false);
