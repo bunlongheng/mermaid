@@ -687,38 +687,61 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
 
 // ── Default Code ──────────────────────────────────────────────────────────────
 const DEFAULT_CODE = `sequenceDiagram
-    title: Claude Code — AI Dev Loop
+    title Full CI/CD Flow — Vercel Deploy + Linode E2E (Merged View)
 
-    participant User
-    participant CC as Claude Code [CLI]
-    participant API as Claude API
-    participant MEM as Memory [CLAUDE.md]
-    participant MCP as MCP Server
-    participant FS as File System
-    participant SH as Shell / Bash
-    participant GIT as Git
-    participant AGT as Sub-Agent
-    participant WEB as Web Search
+    actor Dev as 👨‍💻 Developer
+    participant GH as GitHub main
+    participant Lint as Lint + Typecheck
+    participant Unit as Unit Tests
+    participant Build as Build Job
+    participant Vercel as ▲ Vercel
+    participant Linode as 🖥️ Linode :3000
+    participant Runner as Linode Runner
+    participant PW as Playwright
+    participant Notify as /api/n Email
 
-    User->>CC: "Add auth to my app"
-    CC->>MEM: Load project context & rules
-    MEM-->>CC: CLAUDE.md + memory files
-    CC->>API: Task + tools + full context
-    API-->>CC: Reasoning plan + tool calls
-    CC->>FS: Read source files [Glob, Grep, Read]
-    FS-->>CC: Code structure & relevant files
-    CC->>MCP: Fetch external docs & schemas
-    MCP-->>CC: Reference data returned
-    CC->>AGT: Spawn sub-agent [research]
-    AGT->>WEB: Search auth best practices
-    WEB-->>AGT: OAuth2 & JWT patterns
-    AGT-->>CC: Research complete
-    CC->>FS: Write implementation [Edit, Write]
-    CC->>SH: Run tests & lint
-    SH-->>CC: All tests passing
-    CC->>GIT: Stage & commit changes
-    GIT-->>CC: Committed successfully
-    CC-->>User: Done — 3 files changed`;
+    Dev->>GH: git push main
+
+    Note over GH,Linode: ── ci-deploy.yml fires immediately ──
+
+    par Parallel
+        GH->>Lint: typecheck + lint
+        GH->>Unit: vitest run
+    end
+    Lint-->>GH: ✅
+    Unit-->>GH: ✅
+    GH->>Build: npm run build
+    Build-->>GH: ✅ .next artifact
+
+    par Deploy targets
+        GH->>Linode: POST /api/deploy + gitSha
+        Linode->>Linode: git pull + rebuild + restart
+        GH->>Vercel: deploy hook
+        Vercel-->>Dev: ✅ bheng.vercel.app live
+    end
+
+    Note over Runner,PW: ── e2e-nightly.yml fires every 4h (self-hosted, free) ──
+
+    Runner->>GH: checkout latest main
+    Runner->>Runner: npm ci + npm run build
+    Runner->>Linode: npm run start :3000
+    Runner->>PW: npx playwright test
+    PW->>Linode: 110+ tests
+
+    alt All pass
+        PW-->>Runner: ✅ exit 0
+    else Failure
+        PW-->>Runner: ❌ exit 1
+        Runner->>Notify: POST failure
+        Notify-->>Dev: 📧 alert
+    end
+
+    Note over GH,Notify: ── drift-alert.yml polls every hour ──
+    GH->>Linode: GET /api/monitor/deployment
+    alt Prod > 12h behind main
+        Linode-->>Notify: drift detected
+        Notify-->>Dev: 📧 alert
+    end`;
 
 // ── Slider row ────────────────────────────────────────────────────────────────
 function SliderRow({ label, value, min, max, unit = "", fontSize = 12, ut, onChange }: {
@@ -1155,10 +1178,21 @@ export default function SequenceTool() {
     const dragStartPan = useRef({ x: 0, y: 0 });
     const zoomRef = useRef(1.0);
     const panRef = useRef({ x: 0, y: 0 });
-    const svgDimsRef = useRef<{ w: number; h: number } | null>(null);
     const spaceHeld = useRef(false);
     const viewWheelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const zoomHudRef = useRef<HTMLDivElement>(null);
+    const zoomHudTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+
+    const flashZoomHud = (z: number) => {
+        if (!zoomHudRef.current) return;
+        zoomHudRef.current.textContent = `${Math.round(z * 100)}%`;
+        zoomHudRef.current.style.opacity = "1";
+        if (zoomHudTimer.current) clearTimeout(zoomHudTimer.current);
+        zoomHudTimer.current = setTimeout(() => {
+            if (zoomHudRef.current) zoomHudRef.current.style.opacity = "0";
+        }, 900);
+    };
 
     const commitTitle = useCallback((val: string) => {
         setTitleEdit(null);
@@ -1169,18 +1203,9 @@ export default function SequenceTool() {
             : prev.replace(/^(sequenceDiagram[^\n]*\n?)/im, `$1title: ${t}\n`));
     }, []);
 
-    // Apply transform directly to DOM — bypasses React render cycle for smooth gestures
     const applyTransform = useCallback((p: { x: number; y: number }, z: number) => {
         if (!svgWrapRef.current) return;
-        svgWrapRef.current.style.transform = `translate(calc(-50% + ${p.x}px), calc(-50% + ${p.y}px))`;
-        const dims = svgDimsRef.current;
-        if (dims) {
-            const svgEl = svgWrapRef.current.querySelector("svg");
-            if (svgEl) {
-                svgEl.setAttribute("width",  String(Math.round(dims.w * z)));
-                svgEl.setAttribute("height", String(Math.round(dims.h * z)));
-            }
-        }
+        svgWrapRef.current.style.transform = `translate(calc(-50% + ${p.x}px), calc(-50% + ${p.y}px)) scale(${z})`;
     }, []);
 
     // Sync refs → React state (call on gesture end only)
@@ -1231,12 +1256,13 @@ export default function SequenceTool() {
                 const rect = el.getBoundingClientRect();
                 const dx = e.clientX - (rect.left + rect.width / 2);
                 const dy = e.clientY - (rect.top + rect.height / 2);
-                const speed = e.deltaMode === 1 ? 0.06 : 0.004;
+                const speed = e.deltaMode === 1 ? 0.018 : 0.0012;
                 const oldZoom = zoomRef.current;
-                const newZoom = parseFloat(Math.min(4, Math.max(0.1, oldZoom - e.deltaY * speed)).toFixed(3));
+                const newZoom = parseFloat(Math.min(4, Math.max(0.1, oldZoom - e.deltaY * speed * oldZoom)).toFixed(3));
                 const ratio = newZoom / oldZoom;
                 zoomRef.current = newZoom;
                 panRef.current = { x: dx * (1 - ratio) + panRef.current.x * ratio, y: dy * (1 - ratio) + panRef.current.y * ratio };
+                flashZoomHud(newZoom);
             } else {
                 // Accumulate pan in refs — no DOM write yet
                 panRef.current = { x: panRef.current.x - e.deltaX, y: panRef.current.y - e.deltaY };
@@ -1314,6 +1340,7 @@ export default function SequenceTool() {
                 zoomRef.current = newZoom;
                 panRef.current = { x: newPanX, y: newPanY };
                 applyTransform(panRef.current, zoomRef.current);
+                flashZoomHud(newZoom);
             } else if (e.touches.length === 1 && isTouchPanning) {
                 e.preventDefault();
                 panRef.current = {
@@ -1495,7 +1522,7 @@ export default function SequenceTool() {
         return vb ? { w: parseFloat(vb[1]), h: parseFloat(vb[2]) } : null;
     }, [activeSvg]);
     // Inline sync avoids SWC/Linux minifier TDZ bug (useEffect([svgDims]) gets hoisted before declaration)
-    svgDimsRef.current = svgDims;
+
 
     const fitZoom = useCallback(() => {
         if (!canvasRef.current || !svgDims) return;
@@ -1556,8 +1583,8 @@ export default function SequenceTool() {
             if (tag === "TEXTAREA" || tag === "INPUT") return;
             const mod = e.metaKey || e.ctrlKey;
             if (mod && e.key === "0") { e.preventDefault(); fitZoom(); }
-            if (mod && (e.key === "=" || e.key === "+")) { e.preventDefault(); const nz = parseFloat(Math.min(4, zoomRef.current + 0.15).toFixed(2)); zoomRef.current = nz; applyTransform(panRef.current, nz); setZoom(nz); setFitActive(false); }
-            if (mod && e.key === "-") { e.preventDefault(); const nz = parseFloat(Math.max(0.1, zoomRef.current - 0.15).toFixed(2)); zoomRef.current = nz; applyTransform(panRef.current, nz); setZoom(nz); setFitActive(false); }
+            if (mod && (e.key === "=" || e.key === "+")) { e.preventDefault(); const nz = parseFloat(Math.min(4, zoomRef.current * 1.2).toFixed(2)); zoomRef.current = nz; applyTransform(panRef.current, nz); setZoom(nz); setFitActive(false); flashZoomHud(nz); }
+            if (mod && e.key === "-") { e.preventDefault(); const nz = parseFloat(Math.max(0.1, zoomRef.current / 1.2).toFixed(2)); zoomRef.current = nz; applyTransform(panRef.current, nz); setZoom(nz); setFitActive(false); flashZoomHud(nz); }
             if (e.key === "f" || e.key === "F") fitZoom();
             if (e.key === " " && !e.repeat) { e.preventDefault(); spaceHeld.current = true; }
         };
@@ -1827,6 +1854,7 @@ export default function SequenceTool() {
                         zoomRef.current = newZoom;
                         panRef.current = { x: ox * (1 - ratio) + panRef.current.x * ratio, y: oy * (1 - ratio) + panRef.current.y * ratio };
                         applyTransform(panRef.current, newZoom);
+                        flashZoomHud(newZoom);
                     } else {
                         panRef.current = { x: panRef.current.x - e.deltaX, y: panRef.current.y - e.deltaY };
                         applyTransform(panRef.current, zoomRef.current);
@@ -1841,6 +1869,16 @@ export default function SequenceTool() {
                         dangerouslySetInnerHTML={{ __html: activeSvg }}
                     />
                 )}
+
+                {/* Zoom HUD */}
+                <div ref={zoomHudRef} style={{
+                    position: "absolute", bottom: 96, left: "50%", transform: "translateX(-50%)",
+                    background: "rgba(10,10,15,0.72)", backdropFilter: "blur(12px)",
+                    color: "#fff", borderRadius: 100, padding: "7px 20px",
+                    fontSize: 15, fontWeight: 700, letterSpacing: "0.02em",
+                    opacity: 0, transition: "opacity 0.2s ease", pointerEvents: "none",
+                    zIndex: 50, boxShadow: "0 2px 16px rgba(0,0,0,0.3)",
+                }} />
 
                 {/* Spotlight overlay — updated directly via DOM, no React re-renders */}
                 <div ref={spotlightRef} style={{
@@ -1869,9 +1907,9 @@ export default function SequenceTool() {
                     padding: "0 4px", display: "flex", alignItems: "center", gap: 0,
                     boxShadow: "0 2px 20px rgba(0,0,0,0.18)", zIndex: 20,
                 }}>
-                    <button onClick={() => { const nz = parseFloat(Math.max(0.2, zoom - 0.15).toFixed(2)); zoomRef.current = nz; applyTransform(panRef.current, nz); setZoom(nz); setFitActive(false); }} style={{ color: ut.zoomMuted, fontSize: 22, lineHeight: 1, background: "none", border: "none", cursor: "pointer", width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                    <button onClick={() => { const nz = parseFloat(Math.max(0.2, zoom / 1.2).toFixed(2)); zoomRef.current = nz; applyTransform(panRef.current, nz); setZoom(nz); setFitActive(false); flashZoomHud(nz); }} style={{ color: ut.zoomMuted, fontSize: 22, lineHeight: 1, background: "none", border: "none", cursor: "pointer", width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
                     <span style={{ color: ut.zoomText, fontSize: 12, fontWeight: 600, minWidth: 44, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
-                    <button onClick={() => { const nz = parseFloat(Math.min(4, zoom + 0.15).toFixed(2)); zoomRef.current = nz; applyTransform(panRef.current, nz); setZoom(nz); setFitActive(false); }} style={{ color: ut.zoomMuted, fontSize: 22, lineHeight: 1, background: "none", border: "none", cursor: "pointer", width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                    <button onClick={() => { const nz = parseFloat(Math.min(4, zoom * 1.2).toFixed(2)); zoomRef.current = nz; applyTransform(panRef.current, nz); setZoom(nz); setFitActive(false); flashZoomHud(nz); }} style={{ color: ut.zoomMuted, fontSize: 22, lineHeight: 1, background: "none", border: "none", cursor: "pointer", width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
                     <div style={{ width: 1, height: 20, background: ut.zoomDivider, margin: "0 4px" }} />
                     <button onClick={fitZoom} style={{ color: fitActive ? ut.accent : ut.zoomMuted, fontSize: 11, fontWeight: 700, background: "none", border: "none", cursor: "pointer", letterSpacing: "0.04em", height: 44, padding: "0 12px" }}>Fit</button>
                     <div style={{ width: 1, height: 20, background: ut.zoomDivider, margin: "0 4px" }} />
@@ -2074,6 +2112,16 @@ export default function SequenceTool() {
                             </div>
                         )}
                     </div>
+
+                    {/* Zoom HUD — shown during zoom, fades out via direct DOM */}
+                    <div ref={zoomHudRef} style={{
+                        position: "absolute", bottom: 80, left: "50%", transform: "translateX(-50%)",
+                        background: "rgba(10,10,15,0.72)", backdropFilter: "blur(12px)",
+                        color: "#fff", borderRadius: 100, padding: "7px 20px",
+                        fontSize: 15, fontWeight: 700, letterSpacing: "0.02em",
+                        opacity: 0, transition: "opacity 0.2s ease", pointerEvents: "none",
+                        zIndex: 50, boxShadow: "0 2px 16px rgba(0,0,0,0.3)",
+                    }} />
 
                     {/* Title inline editor overlay */}
                     {titleEdit && (
