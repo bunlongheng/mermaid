@@ -1002,10 +1002,18 @@ function DiagramEditor() {
         setTitleEdit(null);
         const t = val.trim();
         if (!t) return;
-        setCode(prev => /^title:?\s+.+$/im.test(prev)
-            ? prev.replace(/^title:?\s+.+$/im, `title: ${t}`)
-            : prev.replace(/^(sequenceDiagram[^\n]*\n?)/im, `$1title: ${t}\n`));
-    }, []);
+        const newCode = /^title:?\s+.+$/im.test(code)
+            ? code.replace(/^title:?\s+.+$/im, `title: ${t}`)
+            : code.replace(/^(sequenceDiagram[^\n]*\n?)/im, `$1title: ${t}\n`);
+        setCode(newCode);
+        showToast(t, { color: "#7c3aed" });
+        if (savedDiagramId && supabaseUser) {
+            const supabase = createClient();
+            supabase.from("diagrams").update({ title: t, code: newCode }).eq("id", savedDiagramId).then(({ error }) => {
+                if (error) showToast(`Save failed: ${error.message}`, { color: "#ef4444" });
+            });
+        }
+    }, [code, savedDiagramId, supabaseUser]);
 
     const applyTransform = useCallback((p: { x: number; y: number }, z: number) => {
         if (!svgWrapRef.current) return;
