@@ -1,4 +1,11 @@
-// No global providers needed — Supabase auth is handled via cookies + SSR
+"use client";
+import { CuteToast } from "@/app/CuteToast";
+
 export default function Providers({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <CuteToast />
+    </>
+  );
 }

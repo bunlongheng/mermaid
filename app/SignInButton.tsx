@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { showToast } from "@/app/CuteToast";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -20,9 +21,27 @@ export default function LoginForm() {
     e.preventDefault();
     setError(""); setLoading(true);
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) setError(error.message);
+    if (error) { setError(error.message); return; }
+    const meta = data.user?.user_metadata;
+    const rawName = meta?.full_name || meta?.name || data.user?.email || "";
+    const firstName = rawName.includes("@")
+      ? (rawName.split("@")[0].split(/[._+]/)[0] || "you").replace(/^./, (c: string) => c.toUpperCase())
+      : rawName.split(" ")[0];
+    const greetings = [
+      "Let's build something cool.",
+      "Welcome back, boss.",
+      "Let's do it. One diagram at a time.",
+      "Good to see you.",
+      "Ready when you are.",
+      "Let's make it count.",
+      "Diagrams standing by.",
+      "Ready, set, go.",
+      "All systems initiated.",
+      "Let's make something great.",
+    ];
+    showToast(greetings[Math.floor(Math.random() * greetings.length)]);
   }
 
   async function sendReset() {

@@ -255,7 +255,7 @@ type UiTheme = {
 };
 const UI_THEMES: Record<string, UiTheme> = {
     light: {
-        headerBg: "#ffffff",   headerBorder: "#e5e7eb",   headerText: "#374151",
+        headerBg: "#f3f4f6",   headerBorder: "#e5e7eb",   headerText: "#374151",
         canvasBg:  "#e8ecf0",
         panelBg:   "#f1f5f9",  panelBorder:  "#e2e8f0",
         tabBarBg:  "#e2e8f0",  activeTab:    "#ffffff",   activeTabText: "#1e293b", inactiveTabText: "#94a3b8",
@@ -300,7 +300,8 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
     const N = ps.length;
     const BR = 6, LP = l.margin ?? 50, MG = l.stepHeight;
     const AH = 8, SW = 50, SH = 36, FS = l.textSize;
-    const BH = Math.max(36, Math.round(FS * 2.6));
+    const BOX_FS = 13; // component box labels are always fixed — not affected by Font slider
+    const BH = Math.max(36, Math.round(BOX_FS * 2.6));
     const diagramTitle = d.title ?? DEFAULT_DIAGRAM_TITLE;
     const TOP_PAD = l.margin;
     const BOT_PAD = l.margin;
@@ -308,7 +309,7 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
     const TP = 50;
     // Auto-fit box width to label content; Width slider = minimum / extra padding
     const HPAD = 24, ICON_W = o.iconMode === "icons" ? 26 : 0;
-    const pBW = ps.map(p => Math.max(l.boxWidth, Math.ceil(p.label.length * (FS * 0.65) + ICON_W + HPAD)));
+    const pBW = ps.map(p => Math.max(l.boxWidth, Math.ceil(p.label.length * (BOX_FS * 0.65) + ICON_W + HPAD)));
     const BW = Math.max(...pBW);
     const idx = new Map(ps.map((p, i) => [p.id, i]));
     // Per-column spacing — only widen the gap between the two participants that need it
@@ -401,7 +402,7 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
             parts.push(`<rect x="${x}" y="${y}" width="${IW}" height="${BH}" fill="white" fill-opacity="0.92" clip-path="url(#${clipId})"/>`);
             parts.push(`<line x1="${x+IW}" y1="${y+4}" x2="${x+IW}" y2="${y+BH-4}" stroke="white" stroke-opacity="0.4" stroke-width="1"/>`);
             parts.push(`<text x="${x + IW/2}" y="${y+BH/2+1}" text-anchor="middle" dominant-baseline="middle" font-size="${BH*0.52}">${labelEmoji}</text>`);
-            parts.push(`<text x="${x + IW + (bw - IW)/2}" y="${y+BH/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="700" fill="${th.labelFill}">${esc(labelText)}</text>`);
+            parts.push(`<text x="${x + IW + (bw - IW)/2}" y="${y+BH/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${BOX_FS}" font-weight="700" fill="${th.labelFill}">${esc(labelText)}</text>`);
         } else if (o.iconMode === "icons") {
             const IW = BH; // white section is square
             const clipId = `ico${i}_${Math.round(y)}`;
@@ -415,9 +416,9 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
             // Icon centered in white section, colored stroke
             parts.push(renderIcon(iconKey, x + IW / 2, y + BH / 2, ISIZE, pColor));
             // Label text in remaining colored area
-            parts.push(`<text x="${x + IW + (bw - IW)/2}" y="${y+BH/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="700" fill="${th.labelFill}">${esc(p.label)}</text>`);
+            parts.push(`<text x="${x + IW + (bw - IW)/2}" y="${y+BH/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${BOX_FS}" font-weight="700" fill="${th.labelFill}">${esc(p.label)}</text>`);
         } else {
-            parts.push(`<text x="${cx(i)}" y="${y+BH/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="700" fill="${th.labelFill}">${esc(p.label)}</text>`);
+            parts.push(`<text x="${cx(i)}" y="${y+BH/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${BOX_FS}" font-weight="700" fill="${th.labelFill}">${esc(p.label)}</text>`);
         }
     };
     ps.forEach((p, i) => renderBox(p, i, TOP_PAD + TITLE_H + TP));
@@ -487,12 +488,22 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
             }
             const mid = (fx + tx) / 2;
             if (o.coloredText) {
-                const pillH = FS + 8, pillW = Math.max(40, msg.text.length * (FS * 0.62) + 12);
+                const pillH = FS + 8;
                 const pillY = y - pillH / 2;
-                // Clamp pill so it never overlaps the step circle at fx
-                const circleRoom = o.coloredNumbers ? 24 : 4;
+                const circleRoom = o.coloredNumbers ? 24 : 8;
                 const leftBound = Math.min(fx, tx) + circleRoom;
-                const pillX = Math.max(mid - pillW / 2, leftBound);
+                const rightBound = Math.max(fx, tx) - circleRoom;
+                const availW = Math.max(40, rightBound - leftBound);
+                // Truncate text if pill would overflow available span
+                let pillText = msg.text;
+                let pillW = Math.max(40, pillText.length * (FS * 0.62) + 12);
+                if (pillW > availW) {
+                    pillW = availW;
+                    const maxChars = Math.max(1, Math.floor((availW - 20) / (FS * 0.62)));
+                    if (maxChars < pillText.length) pillText = pillText.slice(0, maxChars) + "…";
+                }
+                // Clamp pill so it never overlaps the step circles on either side
+                const pillX = Math.max(leftBound, Math.min(mid - pillW / 2, rightBound - pillW));
                 const pillCx = pillX + pillW / 2;
                 const isMonokai = o.theme === "monokai";
                 if (isMonokai) {
@@ -502,7 +513,7 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
                     parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${th.bg}"/>`);
                     parts.push(`<rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${fpColor}" fill-opacity="0.5"/>`);
                 }
-                parts.push(`<text x="${pillCx}" y="${pillY + pillH / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="600" fill="${pillTextFill}">${esc(msg.text)}</text>`);
+                parts.push(`<text x="${pillCx}" y="${pillY + pillH / 2 + 1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${FS}" font-weight="600" fill="${pillTextFill}">${esc(pillText)}</text>`);
             } else {
                 parts.push(`<text x="${mid}" y="${y-8}" text-anchor="middle" font-family="${f}" font-size="${FS}" fill="${tc}">${esc(msg.text)}</text>`);
             }
@@ -641,7 +652,7 @@ function SettingsContent({
                             <SliderRow label="Width" value={layout.boxWidth} min={80} max={400} fontSize={fs(12)} ut={ut} onChange={v => updL({ boxWidth: v })} />
                             <SliderRow label="Gap" value={layout.spacing} min={120} max={450} fontSize={fs(12)} ut={ut} onChange={v => updL({ spacing: v })} />
                             <SliderRow label="V.Gap" value={layout.vPad ?? 44} min={20} max={300} fontSize={fs(12)} ut={ut} onChange={v => updL({ vPad: v })} />
-                            <SliderRow label="Font" value={layout.textSize} min={8} max={20} unit="px" fontSize={fs(12)} ut={ut} onChange={v => updL({ textSize: v })} />
+                            <SliderRow label="Label" value={layout.textSize} min={8} max={20} unit="px" fontSize={fs(12)} ut={ut} onChange={v => updL({ textSize: v })} />
                             <SliderRow label="Margin" value={layout.margin} min={120} max={200} fontSize={fs(12)} ut={ut} onChange={v => updL({ margin: v })} />
                         </div>}
                     </div>
@@ -880,19 +891,17 @@ function IconPicker({ value, color, ut, onChange }: { value: string; color: stri
 
 // ── Router ────────────────────────────────────────────────────────────────────
 export default function Home() {
-    const [view, setView] = useState<"loading" | "index" | "editor">("loading");
+    const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+    const isEditor = params.has("id") || params.has("new");
+    const [view, setView] = useState<"index" | "editor">(isEditor ? "editor" : "index");
 
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
+        const p = new URLSearchParams(window.location.search);
 
-        if (params.has("id") || params.has("new")) {
-            setView("editor");
-            return;
-        }
+        if (p.has("id") || p.has("new")) { setView("editor"); return; }
 
-        const encoded = params.get("data");
+        const encoded = p.get("data");
         if (encoded) {
-            // Decode LZ-string compressed diagram code
             const code = LZString.decompressFromEncodedURIComponent(encoded) ?? "";
             const stripped = (() => {
                 const lines = code.split("\n");
@@ -910,29 +919,19 @@ export default function Home() {
                 return;
             }
 
-            // Valid sequence diagram — save it and open in editor
             const titleMatch = code.match(/^\s*(?:title|accTitle):?\s+(.+)$/im);
             const title = titleMatch?.[1]?.trim() || "Untitled";
-            const diagramType = "sequence";
-
             fetch("/api/diagrams", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title, code, diagramType }),
+                body: JSON.stringify({ title, code, diagramType: "sequence" }),
             })
                 .then(r => r.ok ? r.json() : null)
-                .then(d => {
-                    const id = d?.id;
-                    window.location.replace(id ? `/?id=${id}&imported=1` : `/?new`);
-                })
+                .then(d => { window.location.replace(d?.id ? `/?id=${d.id}&imported=1` : `/?new`); })
                 .catch(() => window.location.replace("/?new"));
-            return; // stay on loading while fetch runs
         }
-
-        setView("index");
     }, []);
 
-    if (view === "loading") return null;
     if (view === "index") return <DiagramsShell />;
     return <DiagramEditor />;
 }
@@ -1765,45 +1764,175 @@ function DiagramEditor() {
             {diagramLoading && (
                 <div style={{
                     position: "fixed", inset: 0, zIndex: 999,
-                    background: "rgba(10,10,20,0.82)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    backdropFilter: "blur(6px)",
+                    background: "rgba(8,8,18,0.88)",
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18,
+                    backdropFilter: "blur(8px)",
                 }}>
-                    <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {/* outer slow pulse ring */}
-                        <div style={{
-                            position: "absolute", width: 120, height: 120, borderRadius: "50%",
-                            background: "radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 70%)",
-                            animation: "ldPulse 2s ease-in-out infinite",
-                        }} />
-                        {/* mid ring */}
-                        <div style={{
-                            position: "absolute", width: 72, height: 72, borderRadius: "50%",
-                            border: "1.5px solid rgba(139,92,246,0.4)",
-                            animation: "ldSpin 3s linear infinite",
-                        }} />
-                        {/* inner spinning arc */}
-                        <svg width={52} height={52} viewBox="0 0 52 52" style={{ animation: "ldSpinR 1.1s linear infinite" }}>
-                            <circle cx={26} cy={26} r={22} fill="none" stroke="url(#ldGrad)" strokeWidth={3} strokeLinecap="round" strokeDasharray="60 80" />
-                            <defs>
-                                <linearGradient id="ldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" stopColor="#7c3aed" />
-                                    <stop offset="100%" stopColor="#a78bfa" />
-                                </linearGradient>
-                            </defs>
-                        </svg>
-                        {/* center dot */}
-                        <div style={{
-                            position: "absolute", width: 8, height: 8, borderRadius: "50%",
-                            background: "radial-gradient(circle, #c4b5fd, #7c3aed)",
-                            boxShadow: "0 0 12px 4px rgba(124,58,237,0.7)",
-                        }} />
-                    </div>
                     <style>{`
-                        @keyframes ldPulse { 0%,100% { transform: scale(1); opacity: 0.6; } 50% { transform: scale(1.35); opacity: 1; } }
-                        @keyframes ldSpin  { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-                        @keyframes ldSpinR { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+                        /* total loop: 5s */
+                        /* ── boxes ── */
+                        @keyframes sdB1 {
+                            0%,100%{opacity:0;transform:scale(0.3)}
+                            6%{opacity:1;transform:scale(1.08)}
+                            9%{opacity:1;transform:scale(1)}
+                            82%{opacity:1;transform:scale(1)}
+                            90%{opacity:0;transform:scale(0.8)}
+                        }
+                        @keyframes sdB2 {
+                            0%,7%,100%{opacity:0;transform:scale(0.3)}
+                            14%{opacity:1;transform:scale(1.08)}
+                            17%{opacity:1;transform:scale(1)}
+                            82%{opacity:1;transform:scale(1)}
+                            90%{opacity:0;transform:scale(0.8)}
+                        }
+                        @keyframes sdB3 {
+                            0%,14%,100%{opacity:0;transform:scale(0.3)}
+                            21%{opacity:1;transform:scale(1.08)}
+                            24%{opacity:1;transform:scale(1)}
+                            82%{opacity:1;transform:scale(1)}
+                            90%{opacity:0;transform:scale(0.8)}
+                        }
+                        /* ── lifelines draw down ── */
+                        @keyframes sdLL {
+                            0%,22%,100%{stroke-dashoffset:145}
+                            36%{stroke-dashoffset:0}
+                            82%{stroke-dashoffset:0}
+                            90%{stroke-dashoffset:145}
+                        }
+                        /* ── arrow lines draw right ── */
+                        @keyframes sdA1 {
+                            0%,34%,100%{stroke-dashoffset:96}
+                            42%{stroke-dashoffset:0}
+                            82%{stroke-dashoffset:0}
+                            90%{stroke-dashoffset:96}
+                        }
+                        @keyframes sdA2 {
+                            0%,46%,100%{stroke-dashoffset:96}
+                            54%{stroke-dashoffset:0}
+                            82%{stroke-dashoffset:0}
+                            90%{stroke-dashoffset:96}
+                        }
+                        /* ── dashed return lines ── */
+                        @keyframes sdA3 {
+                            0%,56%,100%{opacity:0}
+                            64%{opacity:1}
+                            82%{opacity:1}
+                            90%{opacity:0}
+                        }
+                        @keyframes sdA4 {
+                            0%,66%,100%{opacity:0}
+                            74%{opacity:1}
+                            82%{opacity:1}
+                            90%{opacity:0}
+                        }
+                        /* ── pills pop in ── */
+                        @keyframes sdP1 {
+                            0%,40%,100%{opacity:0;transform:scale(0.4)}
+                            46%{opacity:1;transform:scale(1.1)}
+                            49%{opacity:1;transform:scale(1)}
+                            82%{opacity:1;transform:scale(1)}
+                            90%{opacity:0}
+                        }
+                        @keyframes sdP2 {
+                            0%,52%,100%{opacity:0;transform:scale(0.4)}
+                            58%{opacity:1;transform:scale(1.1)}
+                            61%{opacity:1;transform:scale(1)}
+                            82%{opacity:1;transform:scale(1)}
+                            90%{opacity:0}
+                        }
+                        @keyframes sdP3 {
+                            0%,62%,100%{opacity:0;transform:scale(0.4)}
+                            68%{opacity:1;transform:scale(1.1)}
+                            71%{opacity:1;transform:scale(1)}
+                            82%{opacity:1;transform:scale(1)}
+                            90%{opacity:0}
+                        }
+                        @keyframes sdP4 {
+                            0%,72%,100%{opacity:0;transform:scale(0.4)}
+                            78%{opacity:1;transform:scale(1.1)}
+                            81%{opacity:1;transform:scale(1)}
+                            82%{opacity:1;transform:scale(1)}
+                            90%{opacity:0}
+                        }
+                        /* ── bottom boxes (mirror of top) ── */
+                        @keyframes sdBBot {
+                            0%,22%,100%{opacity:0}
+                            28%{opacity:1}
+                            82%{opacity:1}
+                            90%{opacity:0}
+                        }
+                        /* ── label text fade ── */
+                        @keyframes sdLbl {
+                            0%,82%{opacity:1}
+                            90%,100%{opacity:0}
+                        }
                     `}</style>
+
+                    {/* ── animated sequence diagram ── */}
+                    <svg width={300} height={190} viewBox="0 0 300 190" style={{ filter: "drop-shadow(0 8px 32px rgba(0,0,0,0.6))" }}>
+                        {/* ─ participant boxes top ─ */}
+                        <g style={{ transformOrigin: "50px 14px", animation: "sdB1 5s cubic-bezier(0.34,1.56,0.64,1) infinite" }}>
+                            <rect x={10} y={1} width={80} height={26} rx={7} fill="#fb7185"/>
+                            <text x={50} y={14} textAnchor="middle" dominantBaseline="middle" fontFamily="Inter,system-ui,sans-serif" fontSize={9} fontWeight={700} fill="white">Client</text>
+                        </g>
+                        <g style={{ transformOrigin: "150px 14px", animation: "sdB2 5s cubic-bezier(0.34,1.56,0.64,1) infinite" }}>
+                            <rect x={110} y={1} width={80} height={26} rx={7} fill="#a78bfa"/>
+                            <text x={150} y={14} textAnchor="middle" dominantBaseline="middle" fontFamily="Inter,system-ui,sans-serif" fontSize={9} fontWeight={700} fill="white">API</text>
+                        </g>
+                        <g style={{ transformOrigin: "250px 14px", animation: "sdB3 5s cubic-bezier(0.34,1.56,0.64,1) infinite" }}>
+                            <rect x={210} y={1} width={80} height={26} rx={7} fill="#34d399"/>
+                            <text x={250} y={14} textAnchor="middle" dominantBaseline="middle" fontFamily="Inter,system-ui,sans-serif" fontSize={9} fontWeight={700} fill="white">DB</text>
+                        </g>
+
+                        {/* ─ lifelines ─ */}
+                        <line x1={50}  y1={27} x2={50}  y2={168} stroke="#fb7185" strokeWidth={1.5} strokeOpacity={0.4} strokeDasharray="145" style={{ animation: "sdLL 5s ease-out infinite" }}/>
+                        <line x1={150} y1={27} x2={150} y2={168} stroke="#a78bfa" strokeWidth={1.5} strokeOpacity={0.4} strokeDasharray="145" style={{ animation: "sdLL 5s ease-out 0.05s infinite" }}/>
+                        <line x1={250} y1={27} x2={250} y2={168} stroke="#34d399" strokeWidth={1.5} strokeOpacity={0.4} strokeDasharray="145" style={{ animation: "sdLL 5s ease-out 0.1s infinite" }}/>
+
+                        {/* ─ Arrow 1: Client→API (amber) ─ */}
+                        <line x1={50} y1={65} x2={140} y2={65} stroke="#fbbf24" strokeWidth={2} strokeDasharray="96" style={{ animation: "sdA1 5s ease-out infinite" }}/>
+                        <polygon points="144,65 134,60 134,70" fill="#fbbf24" style={{ animation: "sdP1 5s ease-out infinite", transformOrigin: "144px 65px" }}/>
+                        <g style={{ transformOrigin: "95px 65px", animation: "sdP1 5s cubic-bezier(0.34,1.56,0.64,1) infinite" }}>
+                            <rect x={57} y={57} width={76} height={16} rx={8} fill="#fbbf24"/>
+                            <text x={95} y={65} textAnchor="middle" dominantBaseline="middle" fontFamily="Inter,system-ui,sans-serif" fontSize={8} fontWeight={700} fill="#000">POST /data</text>
+                        </g>
+
+                        {/* ─ Arrow 2: API→DB (sky) ─ */}
+                        <line x1={150} y1={100} x2={240} y2={100} stroke="#38bdf8" strokeWidth={2} strokeDasharray="96" style={{ animation: "sdA2 5s ease-out infinite" }}/>
+                        <polygon points="244,100 234,95 234,105" fill="#38bdf8" style={{ animation: "sdP2 5s ease-out infinite", transformOrigin: "244px 100px" }}/>
+                        <g style={{ transformOrigin: "197px 100px", animation: "sdP2 5s cubic-bezier(0.34,1.56,0.64,1) infinite" }}>
+                            <rect x={159} y={92} width={76} height={16} rx={8} fill="#38bdf8"/>
+                            <text x={197} y={100} textAnchor="middle" dominantBaseline="middle" fontFamily="Inter,system-ui,sans-serif" fontSize={8} fontWeight={700} fill="#000">INSERT row</text>
+                        </g>
+
+                        {/* ─ Arrow 3: DB→API return dashed (teal) ─ */}
+                        <line x1={240} y1={128} x2={160} y2={128} stroke="#34d399" strokeWidth={1.5} strokeDasharray="5 4" style={{ animation: "sdA3 5s ease-out infinite" }}/>
+                        <polygon points="156,128 166,123 166,133" fill="#34d399" style={{ animation: "sdA3 5s ease-out infinite" }}/>
+                        <g style={{ transformOrigin: "200px 128px", animation: "sdP3 5s cubic-bezier(0.34,1.56,0.64,1) infinite" }}>
+                            <rect x={162} y={120} width={76} height={16} rx={8} fill="#34d399" fillOpacity={0.85}/>
+                            <text x={200} y={128} textAnchor="middle" dominantBaseline="middle" fontFamily="Inter,system-ui,sans-serif" fontSize={8} fontWeight={700} fill="#000">201 created</text>
+                        </g>
+
+                        {/* ─ Arrow 4: API→Client return dashed (violet) ─ */}
+                        <line x1={140} y1={155} x2={60} y2={155} stroke="#a78bfa" strokeWidth={1.5} strokeDasharray="5 4" style={{ animation: "sdA4 5s ease-out infinite" }}/>
+                        <polygon points="56,155 66,150 66,160" fill="#a78bfa" style={{ animation: "sdA4 5s ease-out infinite" }}/>
+                        <g style={{ transformOrigin: "100px 155px", animation: "sdP4 5s cubic-bezier(0.34,1.56,0.64,1) infinite" }}>
+                            <rect x={62} y={147} width={76} height={16} rx={8} fill="#a78bfa" fillOpacity={0.85}/>
+                            <text x={100} y={155} textAnchor="middle" dominantBaseline="middle" fontFamily="Inter,system-ui,sans-serif" fontSize={8} fontWeight={700} fill="#000">200 ok ✓</text>
+                        </g>
+
+                        {/* ─ participant boxes bottom ─ */}
+                        <g style={{ animation: "sdBBot 5s ease-out infinite" }}>
+                            <rect x={10}  y={170} width={80} height={18} rx={5} fill="#fb7185" fillOpacity={0.7}/>
+                            <rect x={110} y={170} width={80} height={18} rx={5} fill="#a78bfa" fillOpacity={0.7}/>
+                            <rect x={210} y={170} width={80} height={18} rx={5} fill="#34d399" fillOpacity={0.7}/>
+                        </g>
+                    </svg>
+
+                    {/* label */}
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "rgba(180,185,220,0.8)", letterSpacing: "0.04em", animation: "sdLbl 5s ease-out infinite" }}>
+                        Building diagram…
+                    </p>
                 </div>
             )}
             <style>{`
@@ -1854,14 +1983,14 @@ function DiagramEditor() {
                     style={{
                         width: 36, height: 36, borderRadius: 10, flexShrink: 0,
                         border: `1px solid ${ut.headerBorder}`,
-                        background: opts.theme === "light" ? "#fff" : ut.headerBg,
+                        background: opts.theme === "light" ? "#ffffff" : ut.headerBg,
                         boxShadow: opts.theme === "light" ? "0 2px 8px rgba(0,0,0,0.07)" : "none",
                         color: "#64748b", cursor: "pointer",
                         display: "flex", alignItems: "center", justifyContent: "center",
                         transition: "background 0.1s",
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = opts.theme === "light" ? "#f1f5f9" : ut.activeTab)}
-                    onMouseLeave={e => (e.currentTarget.style.background = opts.theme === "light" ? "#fff" : ut.headerBg)}
+                    onMouseEnter={e => (e.currentTarget.style.background = opts.theme === "light" ? "#e9ecef" : ut.activeTab)}
+                    onMouseLeave={e => (e.currentTarget.style.background = opts.theme === "light" ? "#ffffff" : ut.headerBg)}
                 ><ArrowLeft size={16} strokeWidth={2} /></button>
 
                 <div style={{ flex: 1 }} />
@@ -1869,7 +1998,7 @@ function DiagramEditor() {
                 {/* Action toolbar — ideas-style floating pill */}
                 <div style={{
                     display: "flex", alignItems: "center", gap: 2,
-                    background: opts.theme === "light" ? "#fff" : ut.headerBg,
+                    background: opts.theme === "light" ? "#ffffff" : ut.headerBg,
                     border: `1px solid ${ut.headerBorder}`,
                     borderRadius: 14,
                     boxShadow: opts.theme === "light" ? "0 4px 24px rgba(0,0,0,0.08)" : "none",

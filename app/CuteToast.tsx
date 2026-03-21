@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
+import { Bot } from 'lucide-react';
 
 export interface ToastOptions {
   color?: string;
@@ -48,7 +49,7 @@ export function CuteToast() {
     const handler = (state: ToastState | null) => {
       setToast(state);
       if (timerRef.current) clearTimeout(timerRef.current);
-      if (state) timerRef.current = setTimeout(() => setToast(null), 3000);
+      if (state) timerRef.current = setTimeout(() => setToast(null), 5000);
     };
     listeners.add(handler);
     return () => { listeners.delete(handler); };
@@ -85,7 +86,7 @@ export function CuteToast() {
       <div key={toast.id} style={{
         position: 'fixed', left: '50%', top: 8, zIndex: 100002,
         pointerEvents: 'none',
-        animation: 'cuteToastInOut 3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        animation: 'cuteToastInOut 5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
       }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -96,10 +97,12 @@ export function CuteToast() {
           color: '#fff',
         }}>
           <span style={{
-            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-            border: '1.5px solid rgba(255,255,255,0.35)', borderTopColor: '#fff',
-            display: 'inline-block', animation: 'cuteSpin 0.7s linear infinite',
-          }} />
+            width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+            background: 'rgba(255,255,255,0.2)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Bot size={12} strokeWidth={2} color="#fff" />
+          </span>
           <span style={{
             fontFamily: 'Inter, system-ui, sans-serif',
             fontSize: 8, fontWeight: 900, letterSpacing: '0.08em',

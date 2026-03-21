@@ -4,14 +4,18 @@ export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
 export default function AppleIcon() {
-    const P1 = "#fb7185"; // coral/rose
-    const P2 = "#a78bfa"; // violet
-    const P3 = "#34d399"; // emerald
+    const isLocal = process.env.NEXT_PUBLIC_LOCAL_DEV === "true";
+    const bg = isLocal ? "linear-gradient(135deg, #1a1a1a 0%, #444 55%, #222 100%)" : "linear-gradient(135deg, #0f051e 0%, #2e0f6b 55%, #0c2340 100%)";
+    const P1 = isLocal ? "#888" : "#fb7185";
+    const P2 = isLocal ? "#666" : "#a78bfa";
+    const P3 = isLocal ? "#777" : "#34d399";
+    const A1 = isLocal ? "#999" : "#fbbf24";
+    const A2 = isLocal ? "#888" : "#38bdf8";
 
     return new ImageResponse(
         (
             <div style={{
-                background: "linear-gradient(135deg, #0f051e 0%, #2e0f6b 55%, #0c2340 100%)",
+                background: bg,
                 width: "100%",
                 height: "100%",
                 display: "flex",
@@ -28,12 +32,12 @@ export default function AppleIcon() {
                 <div style={{ position: "absolute", top: 50, left: 140, width: 2, height: 110, background: "rgba(52,211,153,0.3)", display: "flex" }} />
 
                 {/* Arrow 1: P1 → P2 (amber) */}
-                <div style={{ position: "absolute", top: 73, left: 42, width: 46, height: 2, background: "#fbbf24", display: "flex" }} />
-                <div style={{ position: "absolute", top: 69, left: 84, width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "10px solid #fbbf24", display: "flex" }} />
+                <div style={{ position: "absolute", top: 73, left: 42, width: 46, height: 2, background: A1, display: "flex" }} />
+                <div style={{ position: "absolute", top: 69, left: 84, width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: `10px solid ${A1}`, display: "flex" }} />
 
                 {/* Arrow 2: P2 → P3 (sky) */}
-                <div style={{ position: "absolute", top: 98, left: 92, width: 46, height: 2, background: "#38bdf8", display: "flex" }} />
-                <div style={{ position: "absolute", top: 94, left: 134, width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "10px solid #38bdf8", display: "flex" }} />
+                <div style={{ position: "absolute", top: 98, left: 92, width: 46, height: 2, background: A2, display: "flex" }} />
+                <div style={{ position: "absolute", top: 94, left: 134, width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: `10px solid ${A2}`, display: "flex" }} />
 
                 {/* Arrow 3: P3 → P2 return (violet dashed — 3 segments) */}
                 <div style={{ position: "absolute", top: 123, left: 93, width: 12, height: 2, background: P2, opacity: 0.9, display: "flex" }} />

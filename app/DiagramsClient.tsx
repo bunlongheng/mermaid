@@ -540,7 +540,14 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
   }
 
   function signOut() {
-    createClient().auth.signOut().then(() => { localStorage.removeItem(LS_KEY); window.location.reload(); });
+    const farewells = ["Later!","See ya!","Peace out!","Catch you later!","Adios!","So long!","Bye for now!","Take care!","Until next time!"];
+    const msg = farewells[Math.floor(Math.random() * farewells.length)];
+    createClient().auth.signOut().then(() => {
+      localStorage.removeItem(LS_KEY);
+      localStorage.removeItem(LS_FAVS);
+      showToast(msg);
+      setTimeout(() => window.location.reload(), 1800);
+    });
   }
 
   function openInEditor(d: Diagram) { window.location.href = `/?id=${d.id}`; }
@@ -586,9 +593,19 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0f1022", fontFamily: "Inter, system-ui, sans-serif" }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .dc-header { padding: 0 12px !important; gap: 10px !important; }
+          .dc-search-wrap { flex: 1 !important; width: auto !important; min-width: 0 !important; }
+          .dc-search-wrap input { width: 100% !important; }
+          .dc-main { padding: 18px 12px 100px !important; }
+          .dc-fav-card { width: calc(75vw) !important; min-width: 200px !important; }
+          .dc-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important; gap: 10px !important; }
+        }
+      `}</style>
 
       {/* ── Header ── */}
-      <header style={{ background: "#151628", borderBottom: "1px solid #2a2b45", padding: "0 24px", height: 52, display: "flex", alignItems: "center", gap: 16, position: "sticky", top: 0, zIndex: 10, backdropFilter: "blur(12px)" }}>
+      <header className="dc-header" style={{ background: "#151628", borderBottom: "1px solid #2a2b45", padding: "0 24px", height: 52, display: "flex", alignItems: "center", gap: 16, position: "sticky", top: 0, zIndex: 10, backdropFilter: "blur(12px)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
           <svg width={30} height={30} viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: 9 }}>
             <defs><linearGradient id="hbg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#0f051e"/><stop offset="55%" stopColor="#2e0f6b"/><stop offset="100%" stopColor="#0c2340"/></linearGradient></defs>
@@ -610,7 +627,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
         </div>
 
         {/* Search */}
-        <div style={{ position: "relative", width: 240 }}>
+        <div className="dc-search-wrap" style={{ position: "relative", width: 240 }}>
           <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} width={13} height={13} viewBox="0 0 20 20" fill="none">
             <circle cx={9} cy={9} r={6} stroke="currentColor" strokeWidth={1.8} />
             <path d="M14 14l3 3" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
@@ -645,7 +662,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
       </header>
 
       {/* ── Content ── */}
-      <main style={{ padding: "28px 24px 80px" }}>
+      <main className="dc-main" style={{ padding: "28px 24px 80px" }}>
 
         {filtered.length === 0 && (
           <div style={{ position: "fixed", inset: 0, top: 52, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none", background: "#0f1022" }}>
@@ -676,7 +693,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
             </h2>
             <div style={{ display: "flex", gap: 14, overflowX: "auto", overflowY: "visible", paddingBottom: 10, paddingTop: 2, scrollbarWidth: "none" }}>
               {favDiagrams.map(d => (
-                <div key={d.id} style={{ flexShrink: 0, width: 260 }}>
+                <div key={d.id} className="dc-fav-card" style={{ flexShrink: 0, width: 260 }}>
                   <DiagramCard {...cardProps(d)} />
                 </div>
               ))}
@@ -690,7 +707,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
             <h2 style={{ fontSize: 11, fontWeight: 700, color: "#4a4d6e", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>
               {favDiagrams.length > 0 ? "Recent" : "All Diagrams"} · {recentDiagrams.length}
             </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
+            <div className="dc-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
               {recentDiagrams.map(d => <DiagramCard key={d.id} {...cardProps(d)} />)}
             </div>
           </section>
