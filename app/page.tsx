@@ -652,7 +652,7 @@ function SettingsContent({
                             <SliderRow label="Width" value={layout.boxWidth} min={80} max={400} fontSize={fs(12)} ut={ut} onChange={v => updL({ boxWidth: v })} />
                             <SliderRow label="Gap" value={layout.spacing} min={120} max={450} fontSize={fs(12)} ut={ut} onChange={v => updL({ spacing: v })} />
                             <SliderRow label="V.Gap" value={layout.vPad ?? 44} min={20} max={300} fontSize={fs(12)} ut={ut} onChange={v => updL({ vPad: v })} />
-                            <SliderRow label="Label" value={layout.textSize} min={8} max={20} unit="px" fontSize={fs(12)} ut={ut} onChange={v => updL({ textSize: v })} />
+                            <SliderRow label="Font" value={layout.textSize} min={8} max={20} unit="px" fontSize={fs(12)} ut={ut} onChange={v => updL({ textSize: v })} />
                             <SliderRow label="Margin" value={layout.margin} min={120} max={200} fontSize={fs(12)} ut={ut} onChange={v => updL({ margin: v })} />
                         </div>}
                     </div>
@@ -1210,9 +1210,13 @@ function DiagramEditor() {
             // Dev bypass: use server API route (admin client, no RLS, works from LAN IP)
             setDiagramLoading(true);
             fetch(`/api/diagrams/${urlId}`).then(r => r.json()).then(d => {
-                if (d?.code) setCode(d.code);
+                if (d?.code) {
+                    setCode(d.code);
+                    const t = d.code.match(/^(?:title|accTitle):?\s+(.+)$/im)?.[1]?.trim();
+                    if (t) setTimeout(() => showToast(t, { color: "#7c3aed" }), 400);
+                }
                 setDiagramLoading(false);
-                if (isImported) setTimeout(fireConfetti, 300);
+                setTimeout(fireConfetti, 400);
             }).catch(() => setDiagramLoading(false));
         } else {
             supabase.auth.getSession().then(({ data }) => {
@@ -1221,9 +1225,13 @@ function DiagramEditor() {
                     setDiagramLoading(true);
                     void supabase.from("diagrams").select("code").eq("id", urlId).single()
                         .then(({ data: d }) => {
-                            if (d?.code) setCode(d.code);
+                            if (d?.code) {
+                                setCode(d.code);
+                                const t = d.code.match(/^(?:title|accTitle):?\s+(.+)$/im)?.[1]?.trim();
+                                if (t) setTimeout(() => showToast(t, { color: "#7c3aed" }), 400);
+                            }
                             setDiagramLoading(false);
-                            if (isImported) setTimeout(fireConfetti, 300);
+                            setTimeout(fireConfetti, 400);
                         });
                 }
             });
@@ -1560,9 +1568,9 @@ function DiagramEditor() {
             e.preventDefault();
             setCode(pasted);
             setSavedDiagramId(null);
-            showToast("Diagram loaded ✓", { color: "#7c3aed" });
-            const parsed = parse(pasted);
-            if (parsed.participants.length >= 2) setTimeout(fireConfetti, 150);
+            const pastedTitle = pasted.match(/^(?:title|accTitle):?\s+(.+)$/im)?.[1]?.trim() ?? "Diagram loaded";
+            showToast(pastedTitle, { color: "#7c3aed", confetti: true });
+            setTimeout(fireConfetti, 150);
             setTimeout(fitZoom, 120);
             // Always save as a NEW record
             if (supabaseUser) setTimeout(() => saveDiagram(pasted), 300);
