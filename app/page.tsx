@@ -963,6 +963,7 @@ function DiagramEditor() {
     const [hoverScreenY, setHoverScreenY] = useState<number | null>(null);
     const [lanIp, setLanIp] = useState<string | null>(null);
     const [savedDiagramId, setSavedDiagramId] = useState<string | null>(null);
+    const [isSharedDiagram, setIsSharedDiagram] = useState(false);
     const [titleEdit, setTitleEdit] = useState<{ value: string; rect: DOMRect } | null>(null);
 
     const diagramType = useMemo(() => detectDiagramType(code), [code]);
@@ -1213,7 +1214,10 @@ function DiagramEditor() {
 
         const urlId = params.get("id");
         const isImported = params.get("imported") === "1";
-        if (urlId) setSavedDiagramId(urlId);
+        if (urlId) {
+            setSavedDiagramId(urlId);
+            try { const s = new Set(JSON.parse(localStorage.getItem("diagram:shared") ?? "[]")); setIsSharedDiagram(s.has(urlId)); } catch {}
+        }
 
         const isViewMode = params.get("view") === "1";
 
@@ -2060,21 +2064,35 @@ function DiagramEditor() {
                     {/* Share (public link) */}
                     {savedDiagramId && (
                         <button onClick={() => {
-                            const url = `${window.location.origin}/d/${savedDiagramId}`;
-                            navigator.clipboard.writeText(url).catch(() => {});
-                            try { const s = new Set<string>(JSON.parse(localStorage.getItem("diagram:shared") ?? "[]")); s.add(savedDiagramId); localStorage.setItem("diagram:shared", JSON.stringify([...s])); } catch {}
-                            showToast("Public link copied!", { color: "#7c3aed" });
+                            try {
+                                const s = new Set<string>(JSON.parse(localStorage.getItem("diagram:shared") ?? "[]"));
+                                if (isSharedDiagram) {
+                                    s.delete(savedDiagramId);
+                                    localStorage.setItem("diagram:shared", JSON.stringify([...s]));
+                                    setIsSharedDiagram(false);
+                                    showToast("No longer public", { color: "#64748b" });
+                                } else {
+                                    s.add(savedDiagramId);
+                                    localStorage.setItem("diagram:shared", JSON.stringify([...s]));
+                                    setIsSharedDiagram(true);
+                                    const url = `${window.location.origin}/d/${savedDiagramId}`;
+                                    navigator.clipboard.writeText(url).catch(() => {});
+                                    showToast("Public link copied!", { color: "#7c3aed" });
+                                }
+                            } catch {}
                         }} style={{
                             display: "flex", alignItems: "center", gap: 6,
                             padding: "0 10px", height: 30, borderRadius: 8, border: "none",
-                            background: "transparent", color: "#64748b",
-                            cursor: "pointer", fontSize: 13, fontWeight: 400, transition: "background 0.1s",
+                            background: isSharedDiagram ? "rgba(124,58,237,0.15)" : "transparent",
+                            color: isSharedDiagram ? "#a78bfa" : "#64748b",
+                            cursor: "pointer", fontSize: 13, fontWeight: isSharedDiagram ? 600 : 400, transition: "all 0.1s",
                         }}
-                            onMouseEnter={e => (e.currentTarget.style.background = opts.theme === "light" ? "#f1f5f9" : ut.activeTab)}
-                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                            onMouseEnter={e => { if (!isSharedDiagram) e.currentTarget.style.background = opts.theme === "light" ? "#f1f5f9" : ut.activeTab; }}
+                            onMouseLeave={e => { if (!isSharedDiagram) e.currentTarget.style.background = "transparent"; }}
+                            title={isSharedDiagram ? "Public — click to make private" : "Share — make public"}
                         >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                            {!isMobile && "Share"}
+                            {!isMobile && (isSharedDiagram ? "Public" : "Share")}
                         </button>
                     )}
 
