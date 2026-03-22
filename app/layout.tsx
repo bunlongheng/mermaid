@@ -11,7 +11,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Diagrams",
   description: "Beautiful diagram generator — paste any diagram syntax and get a polished visual instantly.",
-  metadataBase: new URL("https://mermaid-bheng.vercel.app"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://diagram-bheng.vercel.app"),
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     title: "Diagrams — Sequence Diagram Generator",
     description: "Paste diagram syntax, get beautiful diagrams instantly.",
     type: "website",
-    url: "https://mermaid-bheng.vercel.app",
+    url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://diagram-bheng.vercel.app",
   },
   twitter: {
     card: "summary_large_image",

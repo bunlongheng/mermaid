@@ -1231,6 +1231,8 @@ function DiagramEditor() {
                     const t = d.code.match(/^(?:title|accTitle):?\s+(.+)$/im)?.[1]?.trim();
                     if (t) setTimeout(() => showToast(t, { color: "#7c3aed" }), 400);
                 }
+                if (d?.settings?.opts) setOpts(o => ({ ...o, ...d.settings.opts }));
+                if (d?.settings?.layout) setLayout(l => ({ ...l, ...d.settings.layout }));
                 setDiagramLoading(false);
                 if (isImported) setTimeout(fireConfetti, 400);
             }).catch(() => setDiagramLoading(false));
@@ -1239,13 +1241,15 @@ function DiagramEditor() {
                 if (data.session) setSupabaseUser(data.session.user);
                 if (urlId) {
                     setDiagramLoading(true);
-                    void supabase.from("diagrams").select("code").eq("id", urlId).single()
+                    void supabase.from("diagrams").select("code, settings").eq("id", urlId).single()
                         .then(({ data: d }) => {
                             if (d?.code) {
                                 setCode(d.code);
                                 const t = d.code.match(/^(?:title|accTitle):?\s+(.+)$/im)?.[1]?.trim();
                                 if (t) setTimeout(() => showToast(t, { color: "#7c3aed" }), 400);
                             }
+                            if (d?.settings?.opts) setOpts(o => ({ ...o, ...d.settings.opts }));
+                            if (d?.settings?.layout) setLayout(l => ({ ...l, ...d.settings.layout }));
                             setDiagramLoading(false);
                             if (isImported) setTimeout(fireConfetti, 400);
                         });
@@ -1408,12 +1412,24 @@ function DiagramEditor() {
     }, [mounted, fitZoom]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const undoStack = useRef<Opts[]>([]);
+    const saveSettings = useCallback((newOpts: Opts, newLayout: Layout) => {
+        if (!savedDiagramId || !supabaseUser) return;
+        const supabase = createClient();
+        supabase.from("diagrams").update({ settings: { opts: newOpts, layout: newLayout } }).eq("id", savedDiagramId).then(() => {});
+    }, [savedDiagramId, supabaseUser]);
+
     const upd = (p: Partial<Opts>) => setOpts(o => {
         undoStack.current.push(o);
         if (undoStack.current.length > 50) undoStack.current.shift();
-        return { ...o, ...p };
+        const next = { ...o, ...p };
+        saveSettings(next, layout);
+        return next;
     });
-    const updL = (p: Partial<Layout>) => setLayout(l => ({ ...l, ...p }));
+    const updL = (p: Partial<Layout>) => setLayout(l => {
+        const next = { ...l, ...p };
+        saveSettings(opts, next);
+        return next;
+    });
 
     // ── Exports ───────────────────────────────────────────────────────────
     const exportFilename = (ext: string) => {
@@ -1479,7 +1495,7 @@ function DiagramEditor() {
                 finalTitle = `${title} ${n}`;
                 n++;
             }
-            const { data: saved, error } = await supabase.from("diagrams").insert({ user_id: supabaseUser.id, title: finalTitle, slug, code: c, diagram_type: dtype }).select("id").single();
+            const { data: saved, error } = await supabase.from("diagrams").insert({ user_id: supabaseUser.id, title: finalTitle, slug, code: c, diagram_type: dtype, settings: { opts, layout } }).select("id").single();
             if (error) showToast(`Error: ${error.message}`, { color: "#ef4444" });
             else {
                 showToast("Saved ✓", { color: "#16a34a" });
@@ -1763,21 +1779,6 @@ function DiagramEditor() {
                     background: "radial-gradient(circle 140px at 50% 50%, transparent 0%, transparent 139px, rgba(0,0,0,0.65) 140px)",
                 }} />
 
-                {/* Download Code button — visible to public viewers */}
-                <div style={{ position: "absolute", bottom: 24, right: 24, zIndex: 40, display: "flex", gap: 8 }}>
-                    <button
-                        onClick={() => {
-                            const blob = new Blob([code], { type: "text/plain" });
-                            const a = document.createElement("a");
-                            a.href = URL.createObjectURL(blob);
-                            a.download = `${(diagram.title ?? "diagram").replace(/[^a-z0-9]/gi, "-").toLowerCase()}.md`;
-                            a.click();
-                        }}
-                        style={{ padding: "8px 16px", borderRadius: 10, background: "rgba(20,20,30,0.88)", border: "1px solid rgba(255,255,255,0.15)", color: "#e2e8f0", fontSize: 12, fontWeight: 600, cursor: "pointer", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 6, letterSpacing: "0.04em" }}
-                    >
-                        ↓ Download Code
-                    </button>
-                </div>
 
                 {/* Esc-pending toast */}
                 {presenterEscPending && (

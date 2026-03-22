@@ -441,26 +441,6 @@ function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShar
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           </button>
-          <button onClick={onRename} title="Rename"
-            style={{ width: 26, height: 26, borderRadius: 7, border: "1px solid #2e2f4a", background: "rgba(20,21,40,0.9)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(8px)" }}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#8b8fa8" strokeWidth={2} strokeLinecap="round">
-              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-          </button>
-          <button onClick={onShare} title="Copy share link"
-            style={{ width: 26, height: 26, borderRadius: 7, border: "1px solid #2e2f4a", background: "rgba(20,21,40,0.9)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(8px)", color: copied ? "#34d399" : "#8b8fa8" }}>
-            {copied ? <span style={{ fontSize: 10, fontWeight: 700 }}>✓</span> : (
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1={12} y1={2} x2={12} y2={15}/>
-              </svg>
-            )}
-          </button>
-          <button onClick={onDelete} title="Delete" disabled={deleting}
-            style={{ width: 26, height: 26, borderRadius: 7, border: "1px solid rgba(239,68,68,0.35)", background: "rgba(20,21,40,0.9)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(8px)" }}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth={2} strokeLinecap="round">
-              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-            </svg>
-          </button>
         </div>
       )}
     </div>
@@ -476,6 +456,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
   useEffect(() => { setDiagrams(initial); }, [initial]);
 
   const [favs, setFavs] = useState<Set<string>>(() => new Set(initial.filter(d => d.is_favorite).map(d => d.id)));
+  useEffect(() => { setFavs(new Set(initial.filter(d => d.is_favorite).map(d => d.id))); }, [initial]);
   const [shared, setShared] = useState<Set<string>>(loadShared);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -619,8 +600,8 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
           .dc-search-wrap { flex: 1 !important; width: auto !important; min-width: 0 !important; }
           .dc-search-wrap input { width: 100% !important; }
           .dc-main { padding: 18px 12px 100px !important; }
-          .dc-fav-card { width: calc(75vw) !important; min-width: 200px !important; }
-          .dc-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important; gap: 10px !important; }
+          .dc-fav-card { width: calc(75vw) !important; min-width: 160px !important; }
+          .dc-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; gap: 8px !important; }
         }
       `}</style>
 
@@ -709,12 +690,8 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
               </svg>
               Favorites · {favDiagrams.length}
             </h2>
-            <div style={{ display: "flex", gap: 14, overflowX: "auto", overflowY: "visible", paddingBottom: 10, paddingTop: 2, scrollbarWidth: "none" }}>
-              {favDiagrams.map(d => (
-                <div key={d.id} className="dc-fav-card" style={{ flexShrink: 0, width: 260 }}>
-                  <DiagramCard {...cardProps(d)} />
-                </div>
-              ))}
+            <div className="dc-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 10 }}>
+              {favDiagrams.map(d => <DiagramCard key={d.id} {...cardProps(d)} />)}
             </div>
           </section>
         )}
@@ -725,7 +702,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
             <h2 style={{ fontSize: 11, fontWeight: 700, color: "#4a4d6e", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>
               {favDiagrams.length > 0 ? "Recent" : "All Diagrams"} · {recentDiagrams.length}
             </h2>
-            <div className="dc-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
+            <div className="dc-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 10 }}>
               {recentDiagrams.map(d => <DiagramCard key={d.id} {...cardProps(d)} />)}
             </div>
           </section>
