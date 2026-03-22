@@ -16,6 +16,12 @@ function loadFavs(): Set<string> {
 }
 function saveFavs(favs: Set<string>) { localStorage.setItem(LS_FAVS, JSON.stringify([...favs])); }
 
+// ── Shared (public) ───────────────────────────────────────────────────────────
+const LS_SHARED = "diagram:shared";
+function loadShared(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(LS_SHARED) ?? "[]")); } catch { return new Set(); }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 // Matches the editor's PAL array exactly so minimap colors == rendered diagram colors
 const PALETTE = ["#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#f43f5e","#84cc16","#0891b2"];
@@ -376,8 +382,8 @@ function RenameModal({ title, onSave, onClose }: { title: string; onSave: (t: st
 }
 
 // ── Card ──────────────────────────────────────────────────────────────────────
-function DiagramCard({ d, isFav, onOpen, onToggleFav, onDelete, onShare, onRename, copied, deleting }: {
-  d: Diagram; isFav: boolean;
+function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShare, onRename, copied, deleting }: {
+  d: Diagram; isFav: boolean; isShared: boolean;
   onOpen: () => void; onToggleFav: () => void; onDelete: () => void; onShare: () => void; onRename: () => void;
   copied: boolean; deleting: boolean;
 }) {
@@ -407,12 +413,20 @@ function DiagramCard({ d, isFav, onOpen, onToggleFav, onDelete, onShare, onRenam
         <span style={{ fontSize: 13, fontWeight: 600, color: "#dde0f5", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {d.title}
         </span>
-        <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "#4a4d6e", flexShrink: 0 }}>
-          <svg width={10} height={10} viewBox="0 0 20 20" fill="none">
-            <circle cx={10} cy={10} r={7} stroke="currentColor" strokeWidth={1.8} />
-            <path d="M10 7v3.5l2 2" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
-          </svg>
-          {relativeTime(d.created_at)}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {isShared && (
+            <span title="Public — anyone with the link can view" style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 600, color: "#a78bfa", background: "rgba(124,58,237,0.15)", border: "1px solid rgba(124,58,237,0.3)", borderRadius: 6, padding: "1px 5px" }}>
+              <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              Public
+            </span>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "#4a4d6e" }}>
+            <svg width={10} height={10} viewBox="0 0 20 20" fill="none">
+              <circle cx={10} cy={10} r={7} stroke="currentColor" strokeWidth={1.8} />
+              <path d="M10 7v3.5l2 2" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+            </svg>
+            {relativeTime(d.updated_at ?? d.created_at)}
+          </div>
         </div>
       </div>
 
@@ -468,6 +482,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
   useEffect(() => { setDiagrams(initial); }, [initial]);
 
   const [favs, setFavs] = useState<Set<string>>(loadFavs);
+  const [shared, setShared] = useState<Set<string>>(loadShared);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -559,8 +574,11 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
   function openInEditor(d: Diagram) { window.location.href = `/?id=${d.id}`; }
 
   function copyShareLink(id: string) {
-    navigator.clipboard.writeText(`${window.location.origin}/d/${id}`).then(() => {
+    const url = `${window.location.origin}/d/${id}`;
+    navigator.clipboard.writeText(url).then(() => {
       setCopied(id); setTimeout(() => setCopied(null), 1500);
+      setShared(prev => { const next = new Set(prev); next.add(id); localStorage.setItem(LS_SHARED, JSON.stringify([...next])); return next; });
+      showToast("Public link copied!", { color: "#7c3aed" });
     });
   }
 
@@ -588,7 +606,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
   const recentDiagrams = filtered.filter(d => !favs.has(d.id)).sort(byUpdated);
 
   const cardProps = (d: Diagram) => ({
-    d, isFav: favs.has(d.id),
+    d, isFav: favs.has(d.id), isShared: shared.has(d.id),
     onOpen: () => openInEditor(d),
     onToggleFav: () => toggleFav(d.id),
     onDelete: () => setConfirmDeleteId(d.id),

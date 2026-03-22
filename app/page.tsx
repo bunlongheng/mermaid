@@ -1215,9 +1215,10 @@ function DiagramEditor() {
         const isImported = params.get("imported") === "1";
         if (urlId) setSavedDiagramId(urlId);
 
-        // Wait for auth session, then fetch diagram (RLS requires auth for owner-scoped reads)
-        if (urlId && process.env.NEXT_PUBLIC_LOCAL_DEV === "true") {
-            // Dev bypass: use server API route (admin client, no RLS, works from LAN IP)
+        const isViewMode = params.get("view") === "1";
+
+        // Public view OR dev bypass: fetch via admin API (no auth required)
+        if (urlId && (process.env.NEXT_PUBLIC_LOCAL_DEV === "true" || isViewMode)) {
             setDiagramLoading(true);
             fetch(`/api/diagrams/${urlId}`).then(r => r.json()).then(d => {
                 if (d?.code) {
@@ -1757,6 +1758,22 @@ function DiagramEditor() {
                     background: "radial-gradient(circle 140px at 50% 50%, transparent 0%, transparent 139px, rgba(0,0,0,0.65) 140px)",
                 }} />
 
+                {/* Download Code button — visible to public viewers */}
+                <div style={{ position: "absolute", bottom: 24, right: 24, zIndex: 40, display: "flex", gap: 8 }}>
+                    <button
+                        onClick={() => {
+                            const blob = new Blob([code], { type: "text/plain" });
+                            const a = document.createElement("a");
+                            a.href = URL.createObjectURL(blob);
+                            a.download = `${(diagram.title ?? "diagram").replace(/[^a-z0-9]/gi, "-").toLowerCase()}.md`;
+                            a.click();
+                        }}
+                        style={{ padding: "8px 16px", borderRadius: 10, background: "rgba(20,20,30,0.88)", border: "1px solid rgba(255,255,255,0.15)", color: "#e2e8f0", fontSize: 12, fontWeight: 600, cursor: "pointer", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 6, letterSpacing: "0.04em" }}
+                    >
+                        ↓ Download Code
+                    </button>
+                </div>
+
                 {/* Esc-pending toast */}
                 {presenterEscPending && (
                     <div style={{
@@ -2036,6 +2053,30 @@ function DiagramEditor() {
                         <Code2 size={14} strokeWidth={2} />
                         {!isMobile && "Code"}
                     </button>
+
+                    {/* separator */}
+                    <div style={{ width: 1, height: 18, background: ut.headerBorder, flexShrink: 0, margin: "0 2px" }} />
+
+                    {/* Share (public link) */}
+                    {savedDiagramId && (
+                        <button onClick={() => {
+                            const url = `${window.location.origin}/d/${savedDiagramId}`;
+                            navigator.clipboard.writeText(url).catch(() => {});
+                            try { const s = new Set<string>(JSON.parse(localStorage.getItem("diagram:shared") ?? "[]")); s.add(savedDiagramId); localStorage.setItem("diagram:shared", JSON.stringify([...s])); } catch {}
+                            showToast("Public link copied!", { color: "#7c3aed" });
+                        }} style={{
+                            display: "flex", alignItems: "center", gap: 6,
+                            padding: "0 10px", height: 30, borderRadius: 8, border: "none",
+                            background: "transparent", color: "#64748b",
+                            cursor: "pointer", fontSize: 13, fontWeight: 400, transition: "background 0.1s",
+                        }}
+                            onMouseEnter={e => (e.currentTarget.style.background = opts.theme === "light" ? "#f1f5f9" : ut.activeTab)}
+                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                        >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                            {!isMobile && "Share"}
+                        </button>
+                    )}
 
                     {/* separator */}
                     <div style={{ width: 1, height: 18, background: ut.headerBorder, flexShrink: 0, margin: "0 2px" }} />
