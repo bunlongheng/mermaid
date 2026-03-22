@@ -2063,37 +2063,51 @@ function DiagramEditor() {
 
                     {/* Share (public link) */}
                     {savedDiagramId && (
-                        <button onClick={() => {
-                            try {
-                                const s = new Set<string>(JSON.parse(localStorage.getItem("diagram:shared") ?? "[]"));
+                        <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                            <button onClick={() => {
                                 if (isSharedDiagram) {
-                                    s.delete(savedDiagramId);
-                                    localStorage.setItem("diagram:shared", JSON.stringify([...s]));
-                                    setIsSharedDiagram(false);
-                                    showToast("No longer public", { color: "#64748b" });
+                                    const url = `${window.location.origin}/d/${savedDiagramId}`;
+                                    navigator.clipboard.writeText(url).catch(() => {});
+                                    window.open(url, "_blank");
+                                    showToast("Link copied — opening preview", { color: "#7c3aed" });
                                 } else {
-                                    s.add(savedDiagramId);
-                                    localStorage.setItem("diagram:shared", JSON.stringify([...s]));
+                                    try { const s = new Set<string>(JSON.parse(localStorage.getItem("diagram:shared") ?? "[]")); s.add(savedDiagramId); localStorage.setItem("diagram:shared", JSON.stringify([...s])); } catch {}
                                     setIsSharedDiagram(true);
                                     const url = `${window.location.origin}/d/${savedDiagramId}`;
                                     navigator.clipboard.writeText(url).catch(() => {});
                                     showToast("Public link copied!", { color: "#7c3aed" });
                                 }
-                            } catch {}
-                        }} style={{
-                            display: "flex", alignItems: "center", gap: 6,
-                            padding: "0 10px", height: 30, borderRadius: 8, border: "none",
-                            background: isSharedDiagram ? "rgba(124,58,237,0.15)" : "transparent",
-                            color: isSharedDiagram ? "#a78bfa" : "#64748b",
-                            cursor: "pointer", fontSize: 13, fontWeight: isSharedDiagram ? 600 : 400, transition: "all 0.1s",
-                        }}
-                            onMouseEnter={e => { if (!isSharedDiagram) e.currentTarget.style.background = opts.theme === "light" ? "#f1f5f9" : ut.activeTab; }}
-                            onMouseLeave={e => { if (!isSharedDiagram) e.currentTarget.style.background = "transparent"; }}
-                            title={isSharedDiagram ? "Public — click to make private" : "Share — make public"}
-                        >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                            {!isMobile && (isSharedDiagram ? "Public" : "Share")}
-                        </button>
+                            }} style={{
+                                display: "flex", alignItems: "center", gap: 6,
+                                padding: "0 8px", height: 30, borderRadius: isSharedDiagram ? "8px 0 0 8px" : "8px", border: "none",
+                                background: isSharedDiagram ? "rgba(124,58,237,0.15)" : "transparent",
+                                color: isSharedDiagram ? "#a78bfa" : "#64748b",
+                                cursor: "pointer", fontSize: 13, fontWeight: isSharedDiagram ? 600 : 400, transition: "all 0.1s",
+                            }}
+                                onMouseEnter={e => { if (!isSharedDiagram) e.currentTarget.style.background = opts.theme === "light" ? "#f1f5f9" : ut.activeTab; }}
+                                onMouseLeave={e => { if (!isSharedDiagram) e.currentTarget.style.background = "transparent"; }}
+                                title={isSharedDiagram ? "Click to preview + copy link" : "Share — make public"}
+                            >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                                {!isMobile && (isSharedDiagram ? "Public" : "Share")}
+                            </button>
+                            {isSharedDiagram && (
+                                <button onClick={() => {
+                                    try { const s = new Set<string>(JSON.parse(localStorage.getItem("diagram:shared") ?? "[]")); s.delete(savedDiagramId); localStorage.setItem("diagram:shared", JSON.stringify([...s])); } catch {}
+                                    setIsSharedDiagram(false);
+                                    showToast("No longer public", { color: "#64748b" });
+                                }} style={{
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    width: 20, height: 30, borderRadius: "0 8px 8px 0", border: "none",
+                                    background: "rgba(124,58,237,0.15)", color: "#a78bfa",
+                                    cursor: "pointer", fontSize: 12, transition: "all 0.1s", paddingLeft: 0,
+                                }}
+                                    title="Make private"
+                                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(239,68,68,0.15)", e.currentTarget.style.color = "#f87171")}
+                                    onMouseLeave={e => (e.currentTarget.style.background = "rgba(124,58,237,0.15)", e.currentTarget.style.color = "#a78bfa")}
+                                >✕</button>
+                            )}
+                        </div>
                     )}
 
                     {/* separator */}
