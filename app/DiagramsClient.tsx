@@ -7,14 +7,8 @@ import type { User } from "@supabase/supabase-js";
 type Diagram = {
   id: string; title: string; slug: string;
   diagram_type: string; created_at: string; updated_at: string; code: string;
+  is_favorite: boolean;
 };
-
-// ── Favorites ─────────────────────────────────────────────────────────────────
-const LS_FAVS = "diagrams:favorites";
-function loadFavs(): Set<string> {
-  try { return new Set(JSON.parse(localStorage.getItem(LS_FAVS) ?? "[]")); } catch { return new Set(); }
-}
-function saveFavs(favs: Set<string>) { localStorage.setItem(LS_FAVS, JSON.stringify([...favs])); }
 
 // ── Shared (public) ───────────────────────────────────────────────────────────
 const LS_SHARED = "diagram:shared";
@@ -481,7 +475,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
   const [diagrams, setDiagrams] = useState(initial);
   useEffect(() => { setDiagrams(initial); }, [initial]);
 
-  const [favs, setFavs] = useState<Set<string>>(loadFavs);
+  const [favs, setFavs] = useState<Set<string>>(() => new Set(initial.filter(d => d.is_favorite).map(d => d.id)));
   const [shared, setShared] = useState<Set<string>>(loadShared);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -555,8 +549,10 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
   function toggleFav(id: string) {
     setFavs(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      saveFavs(next); return next;
+      const isFav = next.has(id);
+      if (isFav) next.delete(id); else next.add(id);
+      createClient().from("diagrams").update({ is_favorite: !isFav }).eq("id", id).then(() => {});
+      return next;
     });
   }
 
