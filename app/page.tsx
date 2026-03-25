@@ -363,11 +363,24 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
     let notesSectionH = 0;
     if (notesByCol.size > 0) {
         let maxColH = 0;
-        notesByCol.forEach(colNotes => {
+        notesByCol.forEach((colNotes, colI) => {
             let colH = 0;
+            const bw = pBW[colI] ?? BW;
+            const maxChars = Math.max(8, Math.floor((bw - NOTE_HPAD * 2) / (FS * 0.58)));
             colNotes.forEach(note => {
-                const lines = note.text.split(/<br\s*\/?>/i).map(s => s.trim()).filter(Boolean);
-                colH += lines.length * noteLineH + NOTE_VPAD * 2 + NOTE_ITEM_GAP;
+                const rawLines = note.text.split(/<br\s*\/?>/i).map(s => s.trim()).filter(Boolean);
+                let wCount = 0;
+                rawLines.forEach(raw => {
+                    const words = raw.split(" ");
+                    let cur = "";
+                    words.forEach(w => {
+                        if (!cur) { cur = w; return; }
+                        if ((cur + " " + w).length <= maxChars) { cur += " " + w; }
+                        else { wCount++; cur = w; }
+                    });
+                    if (cur) wCount++;
+                });
+                colH += wCount * noteLineH + NOTE_VPAD * 2 + NOTE_ITEM_GAP;
             });
             maxColH = Math.max(maxColH, colH);
         });
@@ -580,18 +593,31 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
                 const noteFill  = noteColor + (o.theme === "light" ? "88" : "66");
                 const noteStroke = noteColor;
                 const noteText  = o.theme === "light" ? "#111111" : th.plainTextFill;
-                const lines = note.text.split(/<br\s*\/?>/i).map(s => s.trim()).filter(Boolean);
-                if (!lines.length) return;
-                // Width always matches the leftmost participant's box exactly
+                const rawLines = note.text.split(/<br\s*\/?>/i).map(s => s.trim()).filter(Boolean);
+                if (!rawLines.length) return;
+                // Width matches participant box exactly
                 const nw = pBW[colI];
                 const nx = cx(colI) - nw / 2;
-                const nh = lines.length * noteLineH + NOTE_VPAD * 2;
+                // Word-wrap each raw line to fit within box
+                const maxChars = Math.max(8, Math.floor((nw - NOTE_HPAD * 2) / (FS * 0.58)));
+                const wrappedLines: string[] = [];
+                rawLines.forEach(raw => {
+                    const words = raw.split(" ");
+                    let cur = "";
+                    words.forEach(w => {
+                        if (!cur) { cur = w; return; }
+                        if ((cur + " " + w).length <= maxChars) { cur += " " + w; }
+                        else { wrappedLines.push(cur); cur = w; }
+                    });
+                    if (cur) wrappedLines.push(cur);
+                });
+                const nh = wrappedLines.length * noteLineH + NOTE_VPAD * 2;
                 const ny = curY;
                 const nxr = nx + nw;
                 parts.push(`<path d="M${nx},${ny} L${nxr - CORNER},${ny} L${nxr},${ny + CORNER} L${nxr},${ny + nh} L${nx},${ny + nh} Z" fill="${th.bg}"/>`);
                 parts.push(`<path d="M${nx},${ny} L${nxr - CORNER},${ny} L${nxr},${ny + CORNER} L${nxr},${ny + nh} L${nx},${ny + nh} Z" fill="${noteFill}" stroke="${noteStroke}" stroke-width="1.5"/>`);
                 parts.push(`<path d="M${nxr - CORNER},${ny} L${nxr - CORNER},${ny + CORNER} L${nxr},${ny + CORNER}" fill="${noteStroke}" fill-opacity="0.25" stroke="${noteStroke}" stroke-width="1.5"/>`);
-                lines.forEach((line, li) => {
+                wrappedLines.forEach((line, li) => {
                     const ty = ny + NOTE_VPAD + li * noteLineH + noteLineH / 2;
                     parts.push(`<text x="${nx + NOTE_HPAD}" y="${ty}" dominant-baseline="middle" font-family="${f}" font-size="${FS}" fill="${noteText}">${esc(line)}</text>`);
                 });
@@ -968,7 +994,7 @@ function IconPicker({ value, color, ut, onChange }: { value: string; color: stri
 // ── Router ────────────────────────────────────────────────────────────────────
 export default function Home() {
     const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
-    const isEditor = params.has("id") || params.has("new");
+    const isEditor = params.has("id") || params.has("new") || params.has("data");
     const [view, setView] = useState<"index" | "editor">(isEditor ? "editor" : "index");
 
     useEffect(() => {
@@ -976,36 +1002,7 @@ export default function Home() {
 
         if (p.has("id") || p.has("new")) { setView("editor"); return; }
 
-        const encoded = p.get("data");
-        if (encoded) {
-            const code = LZString.decompressFromEncodedURIComponent(encoded) ?? "";
-            const stripped = (() => {
-                const lines = code.split("\n");
-                if (lines[0]?.trim() !== "---") return code;
-                const end = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
-                return end === -1 ? code : lines.slice(end + 1).join("\n").trimStart();
-            })();
-
-            if (!stripped || !/^sequenceDiagram/im.test(stripped)) {
-                setView("index");
-                setTimeout(() => showToast(
-                    stripped ? "Only sequence diagrams are supported" : "Could not decode ?data= link",
-                    { color: "#f59e0b" }
-                ), 200);
-                return;
-            }
-
-            const titleMatch = code.match(/^\s*(?:title|accTitle):?\s+(.+)$/im);
-            const title = titleMatch?.[1]?.trim() || "Untitled";
-            fetch("/api/diagrams", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title, code, diagramType: "sequence" }),
-            })
-                .then(r => r.ok ? r.json() : null)
-                .then(d => { window.location.replace(d?.id ? `/?id=${d.id}&imported=1` : `/?new`); })
-                .catch(() => window.location.replace("/?new"));
-        }
+        // ?data= is handled directly in DiagramEditor
     }, []);
 
     if (view === "index") return <DiagramsShell />;

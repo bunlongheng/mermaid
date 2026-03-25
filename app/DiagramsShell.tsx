@@ -57,10 +57,6 @@ export default function DiagramsShell() {
   }
 
   if (!user) {
-    // ?data= is a public share/demo link — bypass login and render directly
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("data")) {
-      return <DiagramsClient user={null} diagrams={[]} onRefresh={() => {}} />;
-    }
     return (
       <>
         <div style={{ position: "fixed", inset: 0, background: "#0f1022", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui,-apple-system,sans-serif" }}>
