@@ -1279,35 +1279,34 @@ function DiagramEditor() {
         // Load opts/layout from localStorage
         const rawSearch = window.location.search;
         const params = new URLSearchParams(rawSearch);
-        if (params.get("view") === "1") setViewMode(true);
         try { const o = localStorage.getItem("nsd-opts"); if (o) setOpts(prev => ({ ...prev, ...JSON.parse(o!) })); } catch {}
         try { const l = localStorage.getItem("nsd-layout"); if (l) setLayout(prev => ({ ...prev, ...JSON.parse(l!) })); } catch {}
 
-        // ?data= — inline diagram code (LZ-compressed or plain URI-encoded)
         const dataParam = params.get("data");
+        const urlId = params.get("id");
+        const isImported = params.get("imported") === "1";
+        const isViewMode = params.get("view") === "1";
+
+        // ?data= — inline diagram code (LZ-compressed or plain URI-encoded)
+        let decodedData = "";
         if (dataParam) {
-            let decoded = LZString.decompressFromEncodedURIComponent(dataParam) || "";
-            if (!decoded) { try { decoded = atob(dataParam); } catch { decoded = ""; } }
-            if (!decoded) { try { decoded = decodeURIComponent(dataParam); } catch { decoded = ""; } }
-            if (decoded) {
-                setCode(decoded);
-                setViewMode(true); // treat as read-only share/demo link — no save, no new diagram
-                const t = decoded.match(/^(?:title|accTitle):?\s+(.+)$/im)?.[1]?.trim();
+            decodedData = LZString.decompressFromEncodedURIComponent(dataParam) || "";
+            if (!decodedData) { try { decodedData = atob(dataParam); } catch { decodedData = ""; } }
+            if (!decodedData) { try { decodedData = decodeURIComponent(dataParam); } catch { decodedData = ""; } }
+            if (decodedData) {
+                setCode(decodedData);
+                const t = decodedData.match(/^(?:title|accTitle):?\s+(.+)$/im)?.[1]?.trim();
                 if (t) setTimeout(() => showToast(t, { color: "#7c3aed" }), 400);
             }
         }
 
-        const urlId = params.get("id");
-        const isImported = params.get("imported") === "1";
         if (urlId) {
             setSavedDiagramId(urlId);
             try { const s = new Set(JSON.parse(localStorage.getItem("diagram:shared") ?? "[]")); setIsSharedDiagram(s.has(urlId)); } catch {}
         }
 
-        const isViewMode = params.get("view") === "1";
-
-        // Public view OR dev bypass: fetch via admin API (no auth required)
-        if (urlId && (process.env.NEXT_PUBLIC_LOCAL_DEV === "true" || isViewMode)) {
+        // Fetch diagram content publicly when in view mode (no auth required)
+        if (urlId && isViewMode) {
             setDiagramLoading(true);
             fetch(`/api/diagrams/${urlId}`).then(r => r.json()).then(d => {
                 if (d?.code) {
@@ -1320,10 +1319,16 @@ function DiagramEditor() {
                 setDiagramLoading(false);
                 if (isImported) setTimeout(fireConfetti, 400);
             }).catch(() => setDiagramLoading(false));
-        } else {
-            supabase.auth.getSession().then(({ data }) => {
-                if (data.session) setSupabaseUser(data.session.user);
-                if (urlId) {
+        }
+
+        // Auth check: authenticated users always get the full editor; unauthenticated get presenter for share links
+        supabase.auth.getSession().then(({ data }) => {
+            if (data.session) {
+                setSupabaseUser(data.session.user);
+                // Auth user on a share/view link: show full editor (don't enter presenter mode)
+                // Diagram content already loaded above via public API if isViewMode
+                if (urlId && !isViewMode) {
+                    // Normal edit flow — load with auth
                     setDiagramLoading(true);
                     void supabase.from("diagrams").select("code, settings").eq("id", urlId).single()
                         .then(({ data: d }) => {
@@ -1337,9 +1342,22 @@ function DiagramEditor() {
                             setDiagramLoading(false);
                             if (isImported) setTimeout(fireConfetti, 400);
                         });
+                } else if (process.env.NEXT_PUBLIC_LOCAL_DEV === "true" && urlId && !isViewMode) {
+                    setDiagramLoading(true);
+                    fetch(`/api/diagrams/${urlId}`).then(r => r.json()).then(d => {
+                        if (d?.code) setCode(d.code);
+                        if (d?.settings?.opts) setOpts(o => ({ ...o, ...d.settings.opts }));
+                        if (d?.settings?.layout) setLayout(l => ({ ...l, ...d.settings.layout }));
+                        setDiagramLoading(false);
+                    }).catch(() => setDiagramLoading(false));
                 }
-            });
-        }
+            } else {
+                // Unauthenticated: enter presenter mode for share/view links
+                if (isViewMode || (dataParam && decodedData)) {
+                    setViewMode(true);
+                }
+            }
+        });
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSupabaseUser(session?.user ?? null);
@@ -2182,6 +2200,7 @@ function DiagramEditor() {
                                     try { const s = new Set<string>(JSON.parse(localStorage.getItem("diagram:shared") ?? "[]")); s.delete(savedDiagramId); localStorage.setItem("diagram:shared", JSON.stringify([...s])); } catch {}
                                     setIsSharedDiagram(false);
                                     showToast("No longer public", { color: "#64748b" });
+                                    setTimeout(() => { window.location.href = "/"; }, 800);
                                 }} style={{
                                     display: "flex", alignItems: "center", justifyContent: "center",
                                     width: 20, height: 30, borderRadius: "0 8px 8px 0", border: "none",
