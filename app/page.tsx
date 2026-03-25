@@ -875,33 +875,34 @@ function SettingsContent({
                 {opts.iconMode === "icons" && participants.length > 0 && <>
                     <div style={{ height: 1, background: ut.divider }} />
                     <div>
-                        <div style={{ fontSize: fs(9), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Icons</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                            {participants.map(p => {
+                        <div style={{ fontSize: fs(9), fontWeight: 700, color: ut.sectionLabel, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Icons</div>
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                            {participants.map((p, pi) => {
                                 const currentKey = ICON_NODES[opts.icons[p.id]] ? opts.icons[p.id] : guessIconKey(p.label);
                                 return (
-                                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        <div style={{ width: 32, height: 28, flexShrink: 0, background: "#fff", borderRadius: 6, boxShadow: "0 1px 4px rgba(0,0,0,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <div key={p.id}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0" }}>
                                             <IconPicker
                                                 value={currentKey}
                                                 color={p.color}
                                                 ut={ut}
                                                 onChange={k => upd({ icons: { ...opts.icons, [p.id]: k } })}
                                             />
+                                            <input
+                                                defaultValue={opts.labelOverrides?.[p.id] ?? p.label}
+                                                key={opts.labelOverrides?.[p.id] ?? p.label}
+                                                onBlur={e => {
+                                                    const v = e.currentTarget.value.trim();
+                                                    if (v && v !== p.label) upd({ labelOverrides: { ...opts.labelOverrides, [p.id]: v } });
+                                                    else if (!v || v === p.label) {
+                                                        const next = { ...opts.labelOverrides }; delete next[p.id]; upd({ labelOverrides: next });
+                                                    }
+                                                }}
+                                                onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                                                style={{ fontSize: fs(13), color: ut.bodyText, flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none", fontFamily: "inherit", padding: "1px 0" }}
+                                            />
                                         </div>
-                                        <input
-                                            defaultValue={opts.labelOverrides?.[p.id] ?? p.label}
-                                            key={opts.labelOverrides?.[p.id] ?? p.label}
-                                            onBlur={e => {
-                                                const v = e.currentTarget.value.trim();
-                                                if (v && v !== p.label) upd({ labelOverrides: { ...opts.labelOverrides, [p.id]: v } });
-                                                else if (!v || v === p.label) {
-                                                    const next = { ...opts.labelOverrides }; delete next[p.id]; upd({ labelOverrides: next });
-                                                }
-                                            }}
-                                            onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                                            style={{ fontSize: fs(12), color: ut.bodyText, flex: 1, minWidth: 0, background: "transparent", border: "none", borderBottom: `1px solid ${ut.divider}`, outline: "none", fontFamily: "inherit", padding: "1px 2px" }}
-                                        />
+                                        {pi < participants.length - 1 && <div style={{ height: 1, background: ut.divider, marginLeft: 38 }} />}
                                     </div>
                                 );
                             })}
@@ -955,9 +956,9 @@ function IconPicker({ value, color, ut, onChange }: { value: string; color: stri
             <button
                 onClick={() => { setOpen(o => !o); setSearch(""); }}
                 title={value}
-                style={{ width: 28, height: 28, borderRadius: 7, background: color, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
+                style={{ width: 34, height: 34, borderRadius: 9, background: color, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, boxShadow: "0 2px 6px rgba(0,0,0,0.18)" }}
             >
-                <IconSvg iconKey={value} size={15} color="white" />
+                <IconSvg iconKey={value} size={18} color="white" />
             </button>
             {open && (
                 <div style={{ position: "absolute", left: 0, top: "calc(100% + 6px)", zIndex: 999, background: ut.panelBg, border: `1px solid ${ut.panelBorder}`, borderRadius: 10, padding: 8, width: 232, boxShadow: "0 8px 32px rgba(0,0,0,0.7)" }}>
