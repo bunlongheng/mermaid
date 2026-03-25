@@ -33,7 +33,7 @@ interface Diagram { participants: Participant[]; messages: SeqMsg[]; notes: SeqN
 interface Opts { coloredLines: boolean; coloredNumbers: boolean; coloredText: boolean; showNotes: boolean; font: string; lifelineDash: string; theme: string; iconMode: "none" | "icons" | "emoji"; icons: Record<string,string>; boxOverlay: string; autoLayout: boolean; labelOverrides: Record<string,string> }
 interface Layout { stepHeight: number; boxWidth: number; spacing: number; textSize: number; margin: number; vPad: number }
 
-const DEFAULT_OPTS: Opts = { coloredLines: true, coloredNumbers: true, coloredText: true, showNotes: true, font: "Roboto", lifelineDash: "solid", theme: "light", iconMode: "none", icons: {}, boxOverlay: "none", autoLayout: true, labelOverrides: {} };
+const DEFAULT_OPTS: Opts = { coloredLines: true, coloredNumbers: true, coloredText: true, showNotes: true, font: "Roboto", lifelineDash: "solid", theme: "light", iconMode: "icons", icons: {}, boxOverlay: "gloss", autoLayout: true, labelOverrides: {} };
 const DEFAULT_LAYOUT: Layout = { stepHeight: 42, boxWidth: 141, spacing: 250, textSize: 13, margin: 120, vPad: 44 };
 
 // ── Palette ───────────────────────────────────────────────────────────────────
