@@ -458,7 +458,7 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
             const IW = BH; // white section is square
             const clipId = `eic${i}_${Math.round(y)}`;
             defs.push(`<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${bw}" height="${BH}" rx="${BR}"/></clipPath>`);
-            parts.push(`<rect x="${x}" y="${y}" width="${IW}" height="${BH}" fill="white" fill-opacity="0.92" clip-path="url(#${clipId})"/>`);
+            parts.push(`<rect x="${x+1}" y="${y+1}" width="${IW-1}" height="${BH-2}" fill="white" fill-opacity="0.92" clip-path="url(#${clipId})"/>`);
             parts.push(`<line x1="${x+IW}" y1="${y+4}" x2="${x+IW}" y2="${y+BH-4}" stroke="white" stroke-opacity="0.4" stroke-width="1"/>`);
             parts.push(`<text x="${x + IW/2}" y="${y+BH/2+1}" text-anchor="middle" dominant-baseline="middle" font-size="${BH*0.52}">${labelEmoji}</text>`);
             parts.push(`<text x="${x + IW + (bw - IW)/2}" y="${y+BH/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="${f}" font-size="${BOX_FS}" font-weight="700" fill="${th.labelFill}">${esc(labelText)}</text>`);
@@ -469,8 +469,8 @@ function buildSvg(d: Diagram, o: Opts, l: Layout): string {
             const ISIZE = Math.min(BH - 8, 18);
             const iconKey = ICON_NODES[o.icons[p.id]] ? o.icons[p.id] : guessIconKey(p.label);
             defs.push(`<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${bw}" height="${BH}" rx="${BR}"/></clipPath>`);
-            // White left section
-            parts.push(`<rect x="${x}" y="${y}" width="${IW}" height="${BH}" fill="white" fill-opacity="0.92" clip-path="url(#${clipId})"/>`);
+            // White left section — inset 1px so it doesn't overlap the box border stroke
+            parts.push(`<rect x="${x+1}" y="${y+1}" width="${IW-1}" height="${BH-2}" fill="white" fill-opacity="0.92" clip-path="url(#${clipId})"/>`);
             parts.push(`<line x1="${x+IW}" y1="${y+4}" x2="${x+IW}" y2="${y+BH-4}" stroke="white" stroke-opacity="0.4" stroke-width="1"/>`);
             // Icon centered in white section, colored stroke
             parts.push(renderIcon(iconKey, x + IW / 2, y + BH / 2, ISIZE, pColor));
