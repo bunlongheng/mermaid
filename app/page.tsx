@@ -951,7 +951,9 @@ function IconSvg({ iconKey, size = 16, color = "currentColor" }: { iconKey: stri
 function IconPicker({ value, color, ut, onChange }: { value: string; color: string; ut: UiTheme; onChange: (k: string) => void }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
+    const [pos, setPos] = useState({ top: 0, left: 0 });
     const ref = useRef<HTMLDivElement>(null);
+    const btnRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         if (!open) return;
@@ -962,19 +964,29 @@ function IconPicker({ value, color, ut, onChange }: { value: string; color: stri
         return () => document.removeEventListener("mousedown", handler);
     }, [open]);
 
+    const handleOpen = () => {
+        if (btnRef.current) {
+            const r = btnRef.current.getBoundingClientRect();
+            setPos({ top: r.bottom + 6, left: r.left });
+        }
+        setOpen(o => !o);
+        setSearch("");
+    };
+
     const filtered = ICON_KEYS.filter(k => !search || k.includes(search.toLowerCase()));
 
     return (
         <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
             <button
-                onClick={() => { setOpen(o => !o); setSearch(""); }}
+                ref={btnRef}
+                onClick={handleOpen}
                 title={value}
                 style={{ width: 36, height: "100%", borderRadius: 0, background: "#ffffff", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
             >
                 <IconSvg iconKey={value} size={18} color={color} />
             </button>
             {open && (
-                <div style={{ position: "absolute", left: 0, top: "calc(100% + 6px)", zIndex: 999, background: ut.panelBg, border: `1px solid ${ut.panelBorder}`, borderRadius: 10, padding: 8, width: 232, boxShadow: "0 8px 32px rgba(0,0,0,0.7)" }}>
+                <div style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 9999, background: ut.panelBg, border: `1px solid ${ut.panelBorder}`, borderRadius: 10, padding: 8, width: 232, boxShadow: "0 8px 32px rgba(0,0,0,0.7)" }}>
                     <input
                         autoFocus
                         value={search}
