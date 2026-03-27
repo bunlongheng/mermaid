@@ -381,8 +381,8 @@ function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShar
         overflow: "hidden",
         cursor: "pointer",
         transition: "box-shadow 0.15s, transform 0.15s",
-        border: hovered ? "1px solid #1c1e21" : "1px solid #e4e6e8",
-        boxShadow: hovered ? "0 8px 24px rgba(0,0,0,0.1)" : "0 1px 4px rgba(0,0,0,0.05)",
+        border: hovered ? "2px solid #1c1e21" : "2px solid transparent",
+        boxShadow: hovered ? "0 8px 28px rgba(0,0,0,0.18), 0 0 0 3px rgba(28,30,33,0.08)" : "0 1px 4px rgba(0,0,0,0.05)",
         transform: hovered ? "translateY(-2px)" : "translateY(0)",
         position: "relative",
       }}
