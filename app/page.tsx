@@ -1926,8 +1926,10 @@ function DiagramEditor() {
                 )}
 
                 {mounted && !isSequence && deferredCode.trim() && (
-                    <div ref={svgWrapRef} style={{ position: "absolute", inset: 0, overflow: "auto", padding: 40 }}>
-                        <MermaidRenderer code={deferredCode} theme={opts.theme === "dark" ? "dark" : "default"} />
+                    <div ref={svgWrapRef} style={{ position: "absolute", inset: 0, overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center", padding: 48 }}>
+                        <div style={{ background: "#ffffff", borderRadius: 18, boxShadow: "0 4px 40px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)", padding: "48px 56px", minWidth: 480, maxWidth: "100%", width: "100%" }}>
+                            <MermaidRenderer code={deferredCode} dark={opts.theme === "dark"} />
+                        </div>
                     </div>
                 )}
 
@@ -2413,8 +2415,10 @@ function DiagramEditor() {
                                 dangerouslySetInnerHTML={{ __html: activeSvg }}
                             />
                         ) : mounted && !isSequence && deferredCode.trim() ? (
-                            <div ref={svgWrapRef} style={{ position: "absolute", inset: 0, overflow: "auto", padding: 40 }}>
-                                <MermaidRenderer code={deferredCode} theme={opts.theme === "dark" ? "dark" : "default"} />
+                            <div ref={svgWrapRef} style={{ position: "absolute", inset: 0, overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center", padding: 48 }}>
+                                <div style={{ background: "#ffffff", borderRadius: 18, boxShadow: "0 4px 40px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)", padding: "48px 56px", minWidth: 480, maxWidth: "100%", width: "100%" }}>
+                                    <MermaidRenderer code={deferredCode} dark={opts.theme === "dark"} />
+                                </div>
                             </div>
                         ) : (
                             <div className="flex items-center justify-center h-full">
