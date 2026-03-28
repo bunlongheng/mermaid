@@ -515,6 +515,7 @@ function AIPromptModal({ onClose, onCreated }: { onClose: () => void; onCreated:
 // ── Tag colors ────────────────────────────────────────────────────────────────
 const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   ai:       { bg: "#ede9fe", text: "#6d28d9", border: "#c4b5fd" },
+  api:      { bg: "#fef3c7", text: "#b45309", border: "#fcd34d" },
   work:     { bg: "#dbeafe", text: "#1d4ed8", border: "#93c5fd" },
   personal: { bg: "#dcfce7", text: "#15803d", border: "#86efac" },
   research: { bg: "#fef9c3", text: "#a16207", border: "#fde047" },

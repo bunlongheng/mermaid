@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
       code: code.trim(),
       diagram_type: diagramType,
       is_favorite: true,
+      tags: ["API"],
       settings,
     })
     .select()
