@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { showToast } from "@/app/CuteToast";
+import { CuteToast, showToast } from "@/app/CuteToast";
 import type { User } from "@supabase/supabase-js";
 import confetti from "canvas-confetti";
 
@@ -920,6 +920,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f4f5f7", fontFamily: "Inter, system-ui, sans-serif" }}>
+      <CuteToast />
       <style>{`
         @media (max-width: 640px) {
           .dc-header { padding: 0 16px !important; }
