@@ -579,6 +579,12 @@ function TagModal({ diagram, onSave, onClose, tagColorMap, allKnownTags }: { dia
   // All selectable options: presets + any existing tags in the system
   const allOptions = [...new Set([...PRESET_TAGS, ...allKnownTags])].sort();
 
+  // Local color map — includes new custom tags not yet saved, guaranteed unique
+  const localColorMap = useMemo(() => {
+    const all = [...new Set([...allOptions, ...tags])].sort();
+    return buildTagColorMap(all);
+  }, [allOptions.join(","), tags.join(",")]);
+
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(6px)" }}
       onKeyDown={e => { if (e.key === "Enter" && !input.trim()) { e.stopPropagation(); onSave(tags); onClose(); } }}>
@@ -590,7 +596,7 @@ function TagModal({ diagram, onSave, onClose, tagColorMap, allKnownTags }: { dia
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 16 }}>
           {allOptions.map(t => {
             const active = tags.includes(t);
-            const s = tagColorMap.get(t) ?? TAG_PALETTE[allOptions.indexOf(t) % TAG_PALETTE.length];
+            const s = localColorMap.get(t) ?? TAG_PALETTE[0];
             return (
               <button key={t} onClick={() => active ? remove(t) : add(t)}
                 style={{ padding: "3px 10px 3px 7px", borderRadius: 999, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${s.border}`, background: active ? s.border : "#fff", color: s.text, opacity: active ? 1 : 0.55, transition: "all 0.12s", fontFamily: "inherit", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -613,7 +619,7 @@ function TagModal({ diagram, onSave, onClose, tagColorMap, allKnownTags }: { dia
         {/* Selected tags with remove */}
         {tags.length > 0 && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
-            {tags.map(t => { const s = tagColorMap.get(t) ?? TAG_PALETTE[0]; return (
+            {tags.map(t => { const s = localColorMap.get(t) ?? TAG_PALETTE[0]; return (
               <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px 4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: s.bg, color: s.text, border: `1.5px solid ${s.border}` }}>
                 {t}
                 <button onClick={() => remove(t)} title={`Remove ${t}`}
