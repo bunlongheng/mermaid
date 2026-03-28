@@ -1191,6 +1191,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
               { label: "Arrow types", tag: "Syntax", tagColor: "#65676b", code: `A->B: solid line, no arrow\nA->>B: solid line, arrowhead\nA-->B: dashed, no arrow\nA-->>B: dashed, arrowhead` },
               { label: "With title & autonumber", tag: "Optional", tagColor: "#65676b", code: `sequenceDiagram\n  title: My API Flow\n  autonumber\n  Client->>Server: POST /login\n  Server-->>Client: 200 OK` },
               { label: "Markdown fenced block", tag: "Also accepted", tagColor: "#65676b", code: `\`\`\`mermaid\nsequenceDiagram\n  A->>B: works too\n\`\`\`` },
+              { label: "AI Agent API — create a diagram via curl", tag: "For AI sessions", tagColor: "#6366f1", code: `curl -X POST https://diagrams-bheng.vercel.app/api/ai/diagrams \\\n  -H "Authorization: Bearer m+pbxP6pzbkan/kZpqxlviUMMC6cRJDdTHC1qQhAqb0=" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "title": "My Diagram Title",\n    "diagramType": "sequence",\n    "code": "---\\ntitle: My Diagram\\n---\\nsequenceDiagram\\n  participant A as 🧑 User\\n  participant B as ⚙️ Server\\n  A->>B: Request\\n  B-->>A: Response"\n  }'` },
             ].map(({ label, tag, tagColor, code }) => (
               <div key={label} style={{ marginBottom: 20 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
