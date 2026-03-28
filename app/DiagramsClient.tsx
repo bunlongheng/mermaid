@@ -656,7 +656,7 @@ function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShar
       {tags.length > 0 && (
         <div style={{ padding: "0 13px 8px", display: "flex", gap: 4, flexWrap: "wrap" }} onClick={e => { e.stopPropagation(); onTag(); }}>
           {tags.map(t => { const s = tagStyle(t); return (
-            <span key={t} style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: s.bg, color: s.text, border: `1px solid ${s.border}`, cursor: "pointer" }}>{t}</span>
+            <span key={t} style={{ fontSize: 8, fontWeight: 700, padding: "1px 5px", borderRadius: 20, background: s.bg, color: s.text, border: `1px solid ${s.border}`, cursor: "pointer", letterSpacing: "0.02em" }}>{t}</span>
           ); })}
         </div>
       )}
