@@ -568,9 +568,10 @@ function TagModal({ diagram, onSave, onClose }: { diagram: Diagram; onSave: (tag
         {tags.length > 0 && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
             {tags.map(t => { const s = tagStyle(t); return (
-              <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: s.bg, color: s.text, border: `1px solid ${s.border}` }}>
+              <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px 4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: s.bg, color: s.text, border: `1.5px solid ${s.border}` }}>
                 {t}
-                <button onClick={() => remove(t)} style={{ background: "none", border: "none", cursor: "pointer", color: s.text, fontSize: 12, lineHeight: 1, padding: 0, opacity: 0.7 }}>×</button>
+                <button onClick={() => remove(t)} title={`Remove ${t}`}
+                  style={{ width: 18, height: 18, borderRadius: "50%", background: s.text, border: "none", cursor: "pointer", color: "#fff", fontSize: 13, lineHeight: "18px", textAlign: "center", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
               </span>
             ); })}
           </div>
@@ -653,9 +654,9 @@ function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShar
 
       {/* Tags */}
       {tags.length > 0 && (
-        <div style={{ padding: "0 13px 8px", display: "flex", gap: 4, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: "0 13px 8px", display: "flex", gap: 4, flexWrap: "wrap" }} onClick={e => { e.stopPropagation(); onTag(); }}>
           {tags.map(t => { const s = tagStyle(t); return (
-            <span key={t} style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: s.bg, color: s.text, border: `1px solid ${s.border}` }}>{t}</span>
+            <span key={t} style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: s.bg, color: s.text, border: `1px solid ${s.border}`, cursor: "pointer" }}>{t}</span>
           ); })}
         </div>
       )}
