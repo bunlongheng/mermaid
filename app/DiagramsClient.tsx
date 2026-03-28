@@ -8,7 +8,7 @@ import confetti from "canvas-confetti";
 type Diagram = {
   id: string; title: string; slug: string;
   diagram_type: string; created_at: string; updated_at: string; code: string;
-  is_favorite: boolean;
+  is_favorite: boolean; tags: string[];
 };
 
 // ── Shared (public) ───────────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ function relativeTime(d: string) {
 // ── Diagram type icon ─────────────────────────────────────────────────────────
 function DiagramTypeIcon({ size = 16 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#1c1e21" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
       <circle cx={18} cy={5} r={3} /><circle cx={6} cy={12} r={3} /><circle cx={18} cy={19} r={3} />
       <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" />
     </svg>
@@ -512,6 +512,77 @@ function AIPromptModal({ onClose, onCreated }: { onClose: () => void; onCreated:
   );
 }
 
+// ── Tag colors ────────────────────────────────────────────────────────────────
+const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  ai:       { bg: "#ede9fe", text: "#6d28d9", border: "#c4b5fd" },
+  work:     { bg: "#dbeafe", text: "#1d4ed8", border: "#93c5fd" },
+  personal: { bg: "#dcfce7", text: "#15803d", border: "#86efac" },
+  research: { bg: "#fef9c3", text: "#a16207", border: "#fde047" },
+  default:  { bg: "#f0f1f3", text: "#65676b", border: "#e4e6e8" },
+};
+function tagStyle(tag: string) { return TAG_COLORS[tag.toLowerCase()] ?? TAG_COLORS.default; }
+
+// ── Tag modal ─────────────────────────────────────────────────────────────────
+const PRESET_TAGS = ["AI", "Work", "Personal", "Research"];
+function TagModal({ diagram, onSave, onClose }: { diagram: Diagram; onSave: (tags: string[]) => void; onClose: () => void }) {
+  const [tags, setTags] = useState<string[]>(diagram.tags ?? []);
+  const [input, setInput] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const add = (t: string) => { const v = t.trim(); if (!v || tags.includes(v)) return; setTags(p => [...p, v]); setInput(""); };
+  const remove = (t: string) => setTags(p => p.filter(x => x !== t));
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(6px)" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: "28px 28px 24px", width: 420, boxShadow: "0 24px 64px rgba(0,0,0,0.12)" }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1c1e21", margin: "0 0 4px" }}>Tags</h3>
+        <p style={{ fontSize: 12, color: "#8a8d91", margin: "0 0 18px" }}>{diagram.title}</p>
+
+        {/* Preset pills */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+          {PRESET_TAGS.map(t => {
+            const active = tags.includes(t);
+            const s = tagStyle(t);
+            return (
+              <button key={t} onClick={() => active ? remove(t) : add(t)}
+                style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${active ? s.border : "#e4e6e8"}`, background: active ? s.bg : "#f4f5f7", color: active ? s.text : "#65676b", transition: "all 0.12s" }}>
+                {t}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Custom tag input */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") add(input); if (e.key === "Escape") onClose(); }}
+            placeholder="Custom tag…"
+            style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e4e6e8", borderRadius: 9, outline: "none", fontFamily: "inherit", color: "#1c1e21", background: "#f8f9fa" }} />
+          <button onClick={() => add(input)} style={{ padding: "8px 14px", background: "#1c1e21", color: "#fff", border: "none", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>Add</button>
+        </div>
+
+        {/* Current tags */}
+        {tags.length > 0 && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
+            {tags.map(t => { const s = tagStyle(t); return (
+              <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: s.bg, color: s.text, border: `1px solid ${s.border}` }}>
+                {t}
+                <button onClick={() => remove(t)} style={{ background: "none", border: "none", cursor: "pointer", color: s.text, fontSize: 12, lineHeight: 1, padding: 0, opacity: 0.7 }}>×</button>
+              </span>
+            ); })}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "9px 18px", border: "1px solid #e4e6e8", borderRadius: 9, background: "#f4f5f7", cursor: "pointer", fontSize: 13, fontFamily: "inherit", color: "#65676b" }}>Cancel</button>
+          <button onClick={() => onSave(tags)} style={{ padding: "9px 22px", background: "#1c1e21", color: "#fff", border: "none", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Rename modal ──────────────────────────────────────────────────────────────
 function RenameModal({ title, onSave, onClose }: { title: string; onSave: (t: string) => void; onClose: () => void }) {
   const [val, setVal] = useState(title);
@@ -538,12 +609,13 @@ function RenameModal({ title, onSave, onClose }: { title: string; onSave: (t: st
 }
 
 // ── Card ──────────────────────────────────────────────────────────────────────
-function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShare, onRename, copied, deleting }: {
+function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShare, onRename, onTag, copied, deleting }: {
   d: Diagram; isFav: boolean; isShared: boolean;
-  onOpen: () => void; onToggleFav: () => void; onDelete: () => void; onShare: () => void; onRename: () => void;
+  onOpen: () => void; onToggleFav: () => void; onDelete: () => void; onShare: () => void; onRename: () => void; onTag: () => void;
   copied: boolean; deleting: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
+  const tags = d.tags ?? [];
 
   return (
     <div
@@ -563,7 +635,7 @@ function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShar
       }}
     >
       {/* Header */}
-      <div style={{ padding: "13px 14px 11px", display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ padding: "13px 14px 8px", display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: "#1c1e21", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {d.title}
         </span>
@@ -577,6 +649,15 @@ function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShar
         </div>
       </div>
 
+      {/* Tags */}
+      {tags.length > 0 && (
+        <div style={{ padding: "0 13px 8px", display: "flex", gap: 4, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
+          {tags.map(t => { const s = tagStyle(t); return (
+            <span key={t} style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: s.bg, color: s.text, border: `1px solid ${s.border}` }}>{t}</span>
+          ); })}
+        </div>
+      )}
+
       {/* Minimap */}
       <div style={{ padding: "0 12px 13px" }}>
         <DiagramMinimap code={d.code} type={d.diagram_type} />
@@ -585,6 +666,12 @@ function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShar
       {/* Hover actions */}
       {hovered && (
         <div style={{ position: "absolute", top: 10, right: 10, display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
+          <button onClick={onTag} title="Tags"
+            style={{ width: 26, height: 26, borderRadius: 7, border: "1px solid #e4e6e8", background: "#ffffff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#8a8d91" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.41 0l7.3-7.3a1 1 0 0 0 0-1.41L12 2z"/><circle cx="7" cy="7" r="1.5" fill="#8a8d91"/>
+            </svg>
+          </button>
           <button onClick={onToggleFav} title={isFav ? "Unfavorite" : "Favorite"}
             style={{ width: 26, height: 26, borderRadius: 7, border: "1px solid #e4e6e8", background: "#ffffff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
             <svg width={12} height={12} viewBox="0 0 24 24" fill={isFav ? "#f59e0b" : "none"} stroke={isFav ? "#f59e0b" : "#8a8d91"} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -623,22 +710,14 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showDocs, setShowDocs] = useState(false);
   const [showAIPrompt, setShowAIPrompt] = useState(false);
+  const [taggingDiagram, setTaggingDiagram] = useState<Diagram | null>(null);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const handleAICreated = useCallback((d: Diagram) => {
     setShowAIPrompt(false);
-    // Add diagram to state first, then confetti after render
-    setDiagrams(prev => prev.some(x => x.id === d.id) ? prev : [d, ...prev]);
-    showToast(`✦ "${d.title}" ready!`, { color: "#1c1e21" });
-    // Wait for the card to paint before confetti
-    setTimeout(() => {
-      const end = Date.now() + 1500;
-      const frame = () => {
-        confetti({ particleCount: 6, angle: 270, spread: 120, startVelocity: 14, gravity: 0.9, drift: (Math.random() - 0.5) * 1.2, ticks: 180, origin: { x: Math.random(), y: 0 }, colors: ["#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#8b5cf6"] });
-        if (Date.now() < end) requestAnimationFrame(frame);
-      };
-      requestAnimationFrame(frame);
-    }, 400);
+    // Redirect straight to the diagram
+    window.location.href = `/?id=${d.id}&imported=1`;
   }, []);
   const name = user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email ?? "";
 
@@ -699,7 +778,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
       const looksLikeSequence = /^sequenceDiagram/im.test(body);
       if (!looksLikeSequence) return;
       e.preventDefault();
-      showToast("Diagram detected — opening editor…", { color: "#7c3aed" });
+      showToast("Diagram detected — opening editor…", { color: "#1c1e21" });
 
       const titleMatch = pasted.match(/^\s*(?:title|accTitle):?\s+(.+)$/im);
       const title = titleMatch ? titleMatch[1].trim() : "Untitled";
@@ -748,6 +827,12 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
     });
   }
 
+  async function saveTags(id: string, tags: string[]) {
+    await createClient().from("diagrams").update({ tags }).eq("id", id);
+    setDiagrams(prev => prev.map(d => d.id === id ? { ...d, tags } : d));
+    setTaggingDiagram(null);
+  }
+
   function signOut() {
     const farewells = ["Later!","See ya!","Peace out!","Catch you later!","Adios!","So long!","Bye for now!","Take care!","Until next time!"];
     const msg = farewells[Math.floor(Math.random() * farewells.length)];
@@ -765,7 +850,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
     navigator.clipboard.writeText(url).then(() => {
       setCopied(id); setTimeout(() => setCopied(null), 1500);
       setShared(prev => { const next = new Set(prev); next.add(id); localStorage.setItem(LS_SHARED, JSON.stringify([...next])); return next; });
-      showToast("Public link copied!", { color: "#7c3aed" });
+      showToast("Public link copied!", { color: "#1c1e21" });
     });
   }
 
@@ -784,9 +869,13 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
     setDeleting(null);
   }
 
-  const filtered = search.trim()
-    ? diagrams.filter(d => d.title.toLowerCase().includes(search.toLowerCase()) || d.diagram_type.toLowerCase().includes(search.toLowerCase()))
-    : diagrams;
+  const allTags = [...new Set(diagrams.flatMap(d => d.tags ?? []))].sort();
+
+  const filtered = diagrams.filter(d => {
+    if (search.trim() && !d.title.toLowerCase().includes(search.toLowerCase()) && !d.diagram_type.toLowerCase().includes(search.toLowerCase())) return false;
+    if (activeTag && !(d.tags ?? []).includes(activeTag)) return false;
+    return true;
+  });
 
   const byUpdated = (a: Diagram, b: Diagram) => (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at);
   const favDiagrams = filtered.filter(d => favs.has(d.id)).sort(byUpdated);
@@ -799,6 +888,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
     onDelete: () => setConfirmDeleteId(d.id),
     onShare: () => copyShareLink(d.id),
     onRename: () => setRenamingDiagram(d),
+    onTag: () => setTaggingDiagram(d),
     copied: copied === d.id,
     deleting: deleting === d.id,
   });
@@ -877,6 +967,22 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
         </div>
       </header>
 
+      {/* ── Tag filter bar ── */}
+      {allTags.length > 0 && (
+        <div style={{ background: "#ffffff", borderBottom: "1px solid #e4e6e8", padding: "0 32px", height: 40, display: "flex", alignItems: "center", gap: 6, overflowX: "auto" }}>
+          <button onClick={() => setActiveTag(null)}
+            style={{ padding: "3px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${!activeTag ? "#1c1e21" : "#e4e6e8"}`, background: !activeTag ? "#1c1e21" : "#f4f5f7", color: !activeTag ? "#fff" : "#65676b", flexShrink: 0, transition: "all 0.12s" }}>
+            All
+          </button>
+          {allTags.map(t => { const s = tagStyle(t); const active = activeTag === t; return (
+            <button key={t} onClick={() => setActiveTag(active ? null : t)}
+              style={{ padding: "3px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${active ? s.border : "#e4e6e8"}`, background: active ? s.bg : "#f4f5f7", color: active ? s.text : "#65676b", flexShrink: 0, transition: "all 0.12s" }}>
+              {t}
+            </button>
+          ); })}
+        </div>
+      )}
+
       {/* ── Content ── */}
       <main className="dc-main" style={{ padding: "32px 32px 100px", maxWidth: 1600, margin: "0 auto" }}>
 
@@ -928,6 +1034,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
       >✦</button>
 
       {showAIPrompt && <AIPromptModal onClose={() => setShowAIPrompt(false)} onCreated={handleAICreated} />}
+      {taggingDiagram && <TagModal diagram={taggingDiagram} onSave={tags => saveTags(taggingDiagram.id, tags)} onClose={() => setTaggingDiagram(null)} />}
 
       {renamingDiagram && (
         <RenameModal

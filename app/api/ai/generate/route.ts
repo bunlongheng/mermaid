@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
       slug,
       code: code.trim(),
       diagram_type: "sequence",
+      tags: ["AI"],
       settings: { opts: { boxOverlay: "gloss", iconMode: "icons" } },
     })
     .select()
