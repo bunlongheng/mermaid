@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { showToast } from "@/app/CuteToast";
 import type { User } from "@supabase/supabase-js";
@@ -512,7 +512,7 @@ function AIPromptModal({ onClose, onCreated }: { onClose: () => void; onCreated:
   );
 }
 
-// ── Tag colors — 12 unique palettes, assigned by tag name hash ────────────────
+// ── Tag colors — 12 unique palettes, assigned by sorted position (no duplicates) ──
 const TAG_PALETTE = [
   { bg: "#fef2f2", text: "#b91c1c", border: "#fca5a5" }, // red
   { bg: "#fff7ed", text: "#c2410c", border: "#fdba74" }, // orange
@@ -527,16 +527,19 @@ const TAG_PALETTE = [
   { bg: "#fff1f2", text: "#be123c", border: "#fda4af" }, // rose
   { bg: "#f0f9ff", text: "#0369a1", border: "#7dd3fc" }, // sky
 ];
-function tagHash(tag: string): number {
-  let h = 0;
-  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0;
-  return h % TAG_PALETTE.length;
+function buildTagColorMap(tags: string[]): Map<string, typeof TAG_PALETTE[0]> {
+  const map = new Map<string, typeof TAG_PALETTE[0]>();
+  [...tags].sort().forEach((t, i) => map.set(t, TAG_PALETTE[i % TAG_PALETTE.length]));
+  return map;
 }
-function tagStyle(tag: string) { return TAG_PALETTE[tagHash(tag.toLowerCase())]; }
+const FALLBACK_TAG_STYLE = { bg: "#f0f1f3", text: "#65676b", border: "#e4e6e8" };
+function tagStyle(tag: string, colorMap?: Map<string, typeof TAG_PALETTE[0]>) {
+  return colorMap?.get(tag) ?? TAG_PALETTE[0];
+}
 
 // ── Tag modal ─────────────────────────────────────────────────────────────────
 const PRESET_TAGS = ["AI", "Work", "Personal", "Research"];
-function TagModal({ diagram, onSave, onClose }: { diagram: Diagram; onSave: (tags: string[]) => void; onClose: () => void }) {
+function TagModal({ diagram, onSave, onClose, tagColorMap }: { diagram: Diagram; onSave: (tags: string[]) => void; onClose: () => void; tagColorMap: Map<string, typeof TAG_PALETTE[0]> }) {
   const [tags, setTags] = useState<string[]>(diagram.tags ?? []);
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -555,7 +558,7 @@ function TagModal({ diagram, onSave, onClose }: { diagram: Diagram; onSave: (tag
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
           {PRESET_TAGS.map(t => {
             const active = tags.includes(t);
-            const s = tagStyle(t);
+            const s = tagColorMap.get(t) ?? TAG_PALETTE[0];
             return (
               <button key={t} onClick={() => active ? remove(t) : add(t)}
                 style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${active ? s.border : "#e4e6e8"}`, background: active ? s.bg : "#f4f5f7", color: active ? s.text : "#65676b", transition: "all 0.12s" }}>
@@ -577,7 +580,7 @@ function TagModal({ diagram, onSave, onClose }: { diagram: Diagram; onSave: (tag
         {/* Current tags */}
         {tags.length > 0 && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
-            {tags.map(t => { const s = tagStyle(t); return (
+            {tags.map(t => { const s = tagColorMap.get(t) ?? TAG_PALETTE[0]; return (
               <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px 4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: s.bg, color: s.text, border: `1.5px solid ${s.border}` }}>
                 {t}
                 <button onClick={() => remove(t)} title={`Remove ${t}`}
@@ -622,10 +625,10 @@ function RenameModal({ title, onSave, onClose }: { title: string; onSave: (t: st
 }
 
 // ── Card ──────────────────────────────────────────────────────────────────────
-function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShare, onRename, onTag, copied, deleting }: {
+function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShare, onRename, onTag, copied, deleting, tagColorMap }: {
   d: Diagram; isFav: boolean; isShared: boolean;
   onOpen: () => void; onToggleFav: () => void; onDelete: () => void; onShare: () => void; onRename: () => void; onTag: () => void;
-  copied: boolean; deleting: boolean;
+  copied: boolean; deleting: boolean; tagColorMap: Map<string, typeof TAG_PALETTE[0]>;
 }) {
   const [hovered, setHovered] = useState(false);
   const tags = d.tags ?? [];
@@ -665,7 +668,7 @@ function DiagramCard({ d, isFav, isShared, onOpen, onToggleFav, onDelete, onShar
       {/* Tags */}
       {tags.length > 0 && (
         <div style={{ padding: "0 13px 8px", display: "flex", gap: 4, flexWrap: "wrap" }} onClick={e => { e.stopPropagation(); onTag(); }}>
-          {tags.map(t => { const s = tagStyle(t); return (
+          {tags.map(t => { const s = tagColorMap.get(t) ?? TAG_PALETTE[0]; return (
             <span key={t} style={{ fontSize: 6, fontWeight: 700, padding: "1px 4px", borderRadius: 20, background: s.bg, color: s.text, border: `1px solid ${s.border}`, cursor: "pointer", letterSpacing: "0.02em", lineHeight: 1.4 }}>{t}</span>
           ); })}
         </div>
@@ -885,6 +888,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
   }
 
   const allTags = [...new Set(diagrams.flatMap(d => d.tags ?? []))].sort();
+  const tagColorMap = useMemo(() => buildTagColorMap(allTags), [allTags.join(",")]);
 
   const filtered = diagrams.filter(d => {
     if (search.trim() && !d.title.toLowerCase().includes(search.toLowerCase()) && !d.diagram_type.toLowerCase().includes(search.toLowerCase())) return false;
@@ -906,6 +910,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
     onTag: () => setTaggingDiagram(d),
     copied: copied === d.id,
     deleting: deleting === d.id,
+    tagColorMap,
   });
 
   return (
@@ -989,9 +994,9 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
             style={{ padding: "3px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${!activeTag ? "#1c1e21" : "#e4e6e8"}`, background: !activeTag ? "#1c1e21" : "#f4f5f7", color: !activeTag ? "#fff" : "#65676b", flexShrink: 0, transition: "all 0.12s" }}>
             All
           </button>
-          {allTags.map(t => { const s = tagStyle(t); const active = activeTag === t; return (
+          {allTags.map(t => { const s = tagColorMap.get(t)!; const active = activeTag === t; return (
             <button key={t} onClick={() => setActiveTag(active ? null : t)}
-              style={{ padding: "3px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${active ? s.border : "#e4e6e8"}`, background: active ? s.bg : "#f4f5f7", color: active ? s.text : "#65676b", flexShrink: 0, transition: "all 0.12s" }}>
+              style={{ padding: "3px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${active ? s.border : s.border}`, background: active ? s.bg : `${s.bg}99`, color: s.text, flexShrink: 0, transition: "all 0.12s", opacity: active ? 1 : 0.6 }}>
               {t}
             </button>
           ); })}
@@ -1049,7 +1054,7 @@ export default function DiagramsClient({ user, diagrams: initial, onRefresh }: {
       >✦</button>
 
       {showAIPrompt && <AIPromptModal onClose={() => setShowAIPrompt(false)} onCreated={handleAICreated} />}
-      {taggingDiagram && <TagModal diagram={taggingDiagram} onSave={tags => saveTags(taggingDiagram.id, tags)} onClose={() => setTaggingDiagram(null)} />}
+      {taggingDiagram && <TagModal diagram={taggingDiagram} onSave={tags => saveTags(taggingDiagram.id, tags)} onClose={() => setTaggingDiagram(null)} tagColorMap={tagColorMap} />}
 
       {renamingDiagram && (
         <RenameModal
