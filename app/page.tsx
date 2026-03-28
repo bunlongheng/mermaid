@@ -1359,6 +1359,7 @@ function DiagramEditor() {
                 const d = await r.json();
                 if (d?.code) {
                     setCode(d.code);
+                    if (isImported) setHasFit(false);
                     const t = d.code.match(/^(?:title|accTitle):?\s+(.+)$/im)?.[1]?.trim();
                     if (t) pendingTitleToastRef.current = t;
                 }
@@ -1384,7 +1385,7 @@ function DiagramEditor() {
                     setDiagramLoading(true);
                     void supabase.from("diagrams").select("code, settings").eq("id", urlId).single()
                         .then(({ data: d }) => {
-                            if (d?.code) setCode(d.code);
+                            if (d?.code) { setCode(d.code); if (isImported) setHasFit(false); }
                             if (d?.settings?.opts) setOpts(o => ({ ...o, ...d.settings.opts }));
                             if (d?.settings?.layout) setLayout(l => ({ ...l, ...d.settings.layout }));
                             setDiagramLoading(false);
